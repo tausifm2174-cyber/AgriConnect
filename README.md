@@ -39,38 +39,44 @@ The platform serves three user roles:
 
 ## Current Phase
 
-### Phase 7 — Quality-Aware Matching Engine (Completed)
-The purpose of Phase 7 is to connect commercial buyer purchase requirements with verified farmer harvests using a deterministic, transparent, and read-only matching engine.
+### Phase 8 — Order Management (Completed)
+The purpose of Phase 8 is to implement a complete, atomic order management lifecycle connecting buyer requirements and quality-aware matching results to farmer harvest purchases.
 
-Key accomplishments in Phase 7:
-- Relational matching query joining `QualityAssessment` -> `Harvest` -> `Crop` -> `Farmer` filtering at the MySQL database layer.
-- Enforced 9 hard matching filters: Requirement OPEN, non-expired deadline, crop match, inventory coverage (`available_quantity >= required_quantity > 0`), price ceiling (`price_per_kg <= max_price_per_kg`), harvest status `AVAILABLE`, 1:1 quality assessment existence, quality `VERIFIED`, and quality grade meeting minimum standard.
-- Type-safe, explicit Quality Grade hierarchy logic: Grade A (3), Grade B (2), Grade C (1); Grade A requires A; Grade B accepts A/B; Grade C accepts A/B/C.
-- Deterministic 100-point transparent scoring engine:
-  - Price Score (30 pts max): 10 pt baseline at maxPrice + up to 20 pts price discount savings
-  - Quality Score (30 pts max): Scaled from verified `quality_score / 100 * 30`
-  - Location Score (20 pts max): 20 pts for exact/regional token match, 15 pts if unconstrained, 10 pts otherwise
-  - Quantity Score (20 pts max): 10 pts for 1.0x coverage, scaling to 20 pts at >= 2.0x coverage
-- Deterministic ranking: Match Score DESC -> Quality Score DESC -> Price ASC -> Quantity DESC.
-- Commercial Buyer REST API:
-  - `GET /api/buyer/requirements/{id}/matches` (Retrieves ranked harvest lots, composite scores, and verified quality metrics)
-- Strict Security & Ownership:
-  - Buyer identity strictly derived from JWT context (`@AuthenticationPrincipal CustomUserDetails`).
-  - Cross-buyer access forbidden (`403 Forbidden`).
-  - Role-based authorization (`hasRole('BUYER')`); Farmers and Admins receive `403`.
-- Interactive Buyer UI Matching Dashboard & Inspection Modal:
-  - `[🎯 View Matches]` button added to buyer requirements table.
-  - Interactive matching modal displaying target requirements, total match count, and ranked harvest cards.
-  - Match score pill & 4-component score breakdown metrics.
-  - `[🔬 View Quality Inspection]` modal displaying 5 sensory parameters, damage %, inspector remarks, and verification badge.
-  - Empty state when no eligible harvests pass hard filters.
-- Strict Phase Boundary: Read-only matching; matching does not reserve stock, mutate inventory, or create orders.
-- 172 automated tests passing with zero failures.
-  - Live metric summary cards (Total Requirements, Open, Fulfilled, Expired, Cancelled).
-  - Post Buyer Requirement form with dynamic crop catalog population and client-side validation.
-  - Interactive Requirements Table with status badges and filter tabs (`ALL`, `OPEN`, `FULFILLED`, `EXPIRED`, `CANCELLED`).
-  - View Requirement Details modal and Edit Requirement modal.
-- 148 automated Maven tests passing with 0 failures (`mvnw.cmd test`), alongside live PowerShell API validation and browser subagent verification.
+Key accomplishments in Phase 8:
+- **Relational Schema Migration (`06_phase8_order_management.sql`)**:
+  - Expanded `orders.order_status` ENUM to include `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, `CONFIRMED`, `SHIPPED`, `DELIVERED`.
+  - Added nullable `requirement_id` with foreign key `fk_orders_requirement` referencing `buyer_requirements(requirement_id)`.
+  - Added `remarks VARCHAR(255)` and `cancellation_reason VARCHAR(255)`.
+  - Added index `idx_orders_status` on `order_status` for high-throughput filtering.
+- **Concurrency & Inventory Protection**:
+  - Pessimistic write locking (`@Lock(LockModeType.PESSIMISTIC_WRITE)`) on `Harvest` rows executing `SELECT ... FOR UPDATE` within Spring `@Transactional`.
+  - Atomic stock reservation: immediately deducts purchased quantity from `available_quantity` upon order creation.
+  - Automatic status transition: transitions harvest to `SOLD_OUT` if remaining stock reaches 0, or `PARTIALLY_SOLD` otherwise.
+  - Over-selling prevention: verified via multi-threaded concurrency stress test (`OrderIntegrationTest.testConcurrentOrdersCannotOversellStock`).
+  - Exactly-once stock restoration: rejecting or cancelling an order safely restores harvest stock back to farmer inventory. Double-restoration is strictly prevented.
+- **Order Lifecycle & State Transitions**:
+  - Strict transition validation: `PENDING -> ACCEPTED`, `PENDING -> REJECTED`, `PENDING -> CANCELLED`.
+  - Terminal state locking: Orders in `ACCEPTED`, `REJECTED`, or `CANCELLED` cannot be re-transitioned.
+- **REST APIs**:
+  - **Buyer**:
+    - `POST /api/buyer/orders` (Atomic order placement with stock deduction)
+    - `GET /api/buyer/orders` (Buyer's purchase history)
+    - `GET /api/buyer/orders/{id}` (Single order details; cross-buyer access blocked with 403)
+    - `PATCH /api/buyer/orders/{id}/cancel` (Buyer cancels pending order; restores stock)
+  - **Farmer**:
+    - `GET /api/farmer/orders` (Incoming orders for farmer's harvests)
+    - `GET /api/farmer/orders/{id}` (Order details; cross-farmer access blocked with 403)
+    - `PATCH /api/farmer/orders/{id}/accept` (Farmer accepts pending order)
+    - `PATCH /api/farmer/orders/{id}/reject` (Farmer rejects pending order; restores stock)
+  - **Admin**:
+    - `GET /api/admin/orders` (Global marketplace order monitoring with optional status filter)
+    - `GET /api/admin/orders/{id}` (Order details)
+- **Frontend Integration**:
+  - **Buyer Workflow**: Integrated `[🛒 Place Order]` button on matched harvest cards, opening order placement modal with live price & total amount calculations. Added "My Purchase Orders" dashboard with status filter tabs and cancellation modal.
+  - **Farmer Workflow**: Added "Incoming Buyer Orders" dashboard card with status filter tabs, Accept action, and Reject modal with reason collection.
+  - **Admin Workflow**: Added "Marketplace Order Monitoring" card with full metrics, status filter tabs, and shared Order Details inspection modal.
+- **Test Suite**:
+  - 200 total automated tests passing (`.\backend\mvnw.cmd test`), covering unit tests, integration tests, security boundaries, stock mutations, rollback scenarios, and multi-threaded race conditions.
 
 For full architectural details, see [backend/BUYER_REQUIREMENTS.md](backend/BUYER_REQUIREMENTS.md), [backend/QUALITY_MANAGEMENT.md](backend/QUALITY_MANAGEMENT.md), [backend/FARMER_HARVEST_MANAGEMENT.md](backend/FARMER_HARVEST_MANAGEMENT.md), and [backend/AUTHENTICATION.md](backend/AUTHENTICATION.md).
 
@@ -263,7 +269,7 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 5 — Quality Management & Verification** *(Completed)*
 - [x] **Phase 6 — Buyer Requirements** *(Completed)*
 - [x] **Phase 7 — Quality-Aware Matching** *(Completed)*
-- [ ] **Phase 8 — Order Management**
+- [x] **Phase 8 — Order Management** *(Completed)*
 - [ ] **Phase 9 — Delivery Management**
 - [ ] **Phase 10 — Payment Management**
 - [ ] **Phase 11 — Price History**

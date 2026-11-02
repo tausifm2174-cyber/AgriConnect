@@ -484,3 +484,130 @@ Automated browser demonstration executed using `browser_subagent`:
 Demo recording artifact:
 `file:///C:/Users/mtaus/.gemini/antigravity-ide/brain/f6dd57ba-b4a1-4dac-9083-a981cb37e019/buyer_matching_flow_1791217258623.webp`
 
+---
+
+# AgriConnect — Phase 8: Order Management Walkthrough
+
+This section outlines the implementation, database migration, automated testing, concurrency protection, and frontend verification for **Phase 8: Order Management**.
+
+---
+
+## 1. Summary of Phase 8 Accomplishments
+
+- **Relational Schema Migration (`database/schema/06_phase8_order_management.sql`)**:
+  - Enhanced existing `orders` table to accommodate commercial negotiations and buyer-requirement linkage.
+  - Extended `order_status` ENUM to include `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`, `CONFIRMED`, `SHIPPED`, `DELIVERED`.
+  - Added nullable `requirement_id INT NULL` with foreign key `fk_orders_requirement` referencing `buyer_requirements(requirement_id) ON DELETE SET NULL`.
+  - Added `remarks VARCHAR(255) NULL` and `cancellation_reason VARCHAR(255) NULL`.
+  - Added index `idx_orders_status` on `order_status` for fast status-filtered queries.
+- **Atomic Stock Management & Concurrency Protection**:
+  - Implemented `@Lock(LockModeType.PESSIMISTIC_WRITE)` in `HarvestRepository.findByIdForUpdate(Integer id)` issuing `SELECT ... FOR UPDATE` row locks.
+  - Stock is atomically checked and deducted immediately upon order placement: `available_quantity = available_quantity - ordered_quantity`.
+  - Harvest status automatically transitions: `SOLD_OUT` if remaining stock reaches `0.00`, or `PARTIALLY_SOLD` if stock remains.
+  - Multi-threaded concurrency stress test (`OrderIntegrationTest.testConcurrentOrdersCannotOversellStock`) verified 10 concurrent order threads competing for 50 kg available stock; exactly one succeeded while 9 received HTTP 400 without overselling or negative inventory.
+- **Stock Restoration & Double-Restoration Prevention**:
+  - If a Farmer rejects an order or a Buyer cancels a pending order: reserved quantity is added back to harvest `available_quantity` exactly once.
+  - Transition validity is validated under pessimistic locks; terminal states (`ACCEPTED`, `REJECTED`, `CANCELLED`) cannot be re-executed, making double restoration impossible.
+- **Role-Bounded REST APIs**:
+  - **Buyer Endpoints**:
+    - `POST /api/buyer/orders`: Authenticated buyer places an order; derives buyer from JWT; validates verified quality assessment, stock availability, positive quantity, price ceiling, and non-self-purchase.
+    - `GET /api/buyer/orders`: Retrieves purchase orders placed by authenticated buyer.
+    - `GET /api/buyer/orders/{id}`: Single order details; cross-buyer access forbidden (403).
+    - `PATCH /api/buyer/orders/{id}/cancel`: Buyer cancels pending order; restores stock.
+  - **Farmer Endpoints**:
+    - `GET /api/farmer/orders`: Retrieves incoming purchase orders for authenticated farmer's harvests.
+    - `GET /api/farmer/orders/{id}`: Single order details; cross-farmer access forbidden (403).
+    - `PATCH /api/farmer/orders/{id}/accept`: Farmer confirms pending order (`PENDING -> ACCEPTED`).
+    - `PATCH /api/farmer/orders/{id}/reject`: Farmer rejects pending order (`PENDING -> REJECTED`), restoring stock.
+  - **Admin Endpoints**:
+    - `GET /api/admin/orders`: Marketplace order monitoring with optional status filter.
+    - `GET /api/admin/orders/{id}`: Order details inspection.
+- **Frontend Integration**:
+  - **Buyer Interface**:
+    - `[🛒 Place Order]` button on matched harvest cards opening `#place-order-modal`.
+    - Live calculation preview displaying requested quantity, rate, and total contract amount.
+    - "My Purchase Orders" card with status filter tabs (`ALL`, `PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`).
+    - Cancellation modal with optional cancellation reason.
+  - **Farmer Interface**:
+    - "Incoming Buyer Orders" card with status filter tabs and real-time counts.
+    - Inline `[✅ Accept]` action and `[❌ Reject]` modal with rejection reason.
+  - **Admin Interface**:
+    - "Marketplace Order Monitoring" card with comprehensive transaction history and status filter tabs.
+    - Shared Order Details inspection modal.
+
+---
+
+## 2. Test Execution Results
+
+Ran complete automated test suite:
+```bash
+.\backend\mvnw.cmd -f backend/pom.xml test
+```
+
+Output:
+```text
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 200, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  01:32 min
+```
+
+### Phase 8 Test Breakdown (28 New Tests):
+1. **`OrderServiceTest` (13 Unit Tests)**:
+   - `testCreateOrder_Success`: Order creation with stock deduction and lot status transition.
+   - `testCreateOrder_ExceedsAvailableStock_ThrowsBadRequest`: Overselling attempt blocked.
+   - `testCreateOrder_ZeroOrNegativeQuantity_ThrowsBadRequest`: Invalid quantity blocked.
+   - `testCreateOrder_UnverifiedQuality_ThrowsBadRequest`: Harvest without VERIFIED quality blocked.
+   - `testCreateOrder_FarmerCannotBuyOwnHarvest_ThrowsBadRequest`: Self-purchase blocked.
+   - `testCreateOrder_PriceExceedsRequirementCeiling_ThrowsBadRequest`: Price higher than requirement max price rejected.
+   - `testFarmerAcceptOrder_Success`: Transition PENDING -> ACCEPTED.
+   - `testFarmerRejectOrder_RestoresStockExactlyOnce`: Transition PENDING -> REJECTED restores stock.
+   - `testFarmerRejectOrder_DoubleRestorationPrevented`: Non-pending rejection rejected.
+   - `testBuyerCancelOrder_RestoresStockExactlyOnce`: Transition PENDING -> CANCELLED restores stock.
+   - `testBuyerCancelOrder_DoubleCancellationPrevented`: Non-pending cancellation rejected.
+   - `testCrossUserAccess_Forbidden`: Non-owner farmer or buyer cannot view or modify other's orders (403).
+   - `testAdminOrderMonitoring_Success`: Admin can view all orders and filter by status.
+2. **`OrderIntegrationTest` (14 Spring Boot MockMvc Integration Tests)**:
+   - `testBuyerPlacesOrder_Success`: 201 Created with correct stock deduction.
+   - `testBuyerOrderExceedsStock_BadRequest`: 400 Bad Request on stock deficit.
+   - `testBuyerOrderZeroQuantity_BadRequest`: 400 Bad Request on zero quantity.
+   - `testBuyerOrderUnverifiedHarvest_BadRequest`: 400 Bad Request on unverified harvest.
+   - `testCrossBuyerAccess_Forbidden`: 403 Forbidden on another buyer's order.
+   - `testFarmerViewsOwnOrders_Success`: 200 OK returning farmer's incoming orders.
+   - `testCrossFarmerAccess_Forbidden`: 403 Forbidden on another farmer's order.
+   - `testFarmerAcceptOrder_Success`: 200 OK confirming order.
+   - `testFarmerRejectOrder_RestoresStock`: 200 OK with stock restoration.
+   - `testBuyerCancelOrder_RestoresStock`: 200 OK with stock restoration.
+   - `testDoubleCancellation_BadRequest`: 400 Bad Request on re-cancelling.
+   - `testInvalidStatusTransition_BadRequest`: 400 Bad Request on invalid state transition.
+   - `testSecurity_UnauthenticatedAndWrongRoles`: 401 Unauthorized & 403 Forbidden verification.
+   - `testConcurrentOrdersCannotOversellStock`: Multi-threaded concurrency stress test verifying inventory isolation under contention.
+3. **`OrderDatabaseMigrationTest` (1 Test)**:
+   - Verifies DDL execution and MySQL schema integrity.
+
+---
+
+## 3. How to Test Phase 8 in Browser
+
+1. Open `frontend/index.html` in browser.
+2. **Buyer Workflow**:
+   - Sign in as Buyer: `vikas.gupta@freshmarts.com` / `Password@123`.
+   - In Buyer Requirements Dashboard, find requirement `#REQ-1` and click `[🎯 View Matches]`.
+   - On the matched harvest card, click `[🛒 Place Order]`.
+   - Review live price preview, adjust quantity (e.g. 50 kg), add remarks, and click `Confirm & Place Order`.
+   - Observe success notification, and verify order appears in "My Purchase Orders" with `PENDING` status.
+3. **Farmer Workflow**:
+   - Sign in as Farmer: `rajesh.patel@kisan.in` / `Password@123`.
+   - In Farmer Dashboard, scroll to "Incoming Buyer Orders".
+   - View newly received order, review buyer details and crop information.
+   - Click `[✅ Accept]` to confirm transaction, or `[❌ Reject]` to decline with reason and restore inventory.
+4. **Admin Workflow**:
+   - Sign in as Admin: `admin@agriconnect.com` / `Admin@123`.
+   - Scroll to "Marketplace Order Monitoring" card.
+   - Filter by status tabs (`PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`).
+   - Click `[👁️ Details]` to view comprehensive contract terms, timestamps, and cancellation notes.
+

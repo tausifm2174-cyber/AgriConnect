@@ -13,6 +13,9 @@ const CROPS_ENDPOINT = `${API_BASE_URL}/api/crops`;
 const FARMER_PROFILE_ENDPOINT = `${API_BASE_URL}/api/farmer/profile`;
 const FARMER_HARVESTS_ENDPOINT = `${API_BASE_URL}/api/farmer/harvests`;
 const ADMIN_QUALITY_ENDPOINT = `${API_BASE_URL}/api/admin/quality`;
+const BUYER_ORDERS_ENDPOINT = `${API_BASE_URL}/api/buyer/orders`;
+const FARMER_ORDERS_ENDPOINT = `${API_BASE_URL}/api/farmer/orders`;
+const ADMIN_ORDERS_ENDPOINT = `${API_BASE_URL}/api/admin/orders`;
 
 const TOKEN_STORAGE_KEY = 'agriconnect_jwt_token';
 
@@ -23,6 +26,16 @@ let farmerHarvests = [];
 let activeHarvestFilter = 'ALL';
 let adminQualityLots = [];
 let activeAdminQualityFilter = 'PENDING';
+
+// Phase 8 Order State
+let currentMatchedRequirementId = null;
+let farmerOrders = [];
+let activeFarmerOrderFilter = 'ALL';
+let buyerOrders = [];
+let activeBuyerOrderFilter = 'ALL';
+let adminOrders = [];
+let activeAdminOrderFilter = 'ALL';
+let activeOrderUnitPrice = 0;
 
 // DOM Elements - Health Monitor (Phase 1)
 const backendBadge = document.getElementById('backend-status-badge');
@@ -398,6 +411,10 @@ function renderUnauthenticatedView() {
     closeFarmerQualityModal();
     closeEditRequirementModal();
     closeViewRequirementModal();
+    closePlaceOrderModal();
+    closeOrderDetailsModal();
+    closeCancelOrderModal();
+    closeRejectOrderModal();
 }
 
 // ===================================================================
@@ -810,6 +827,7 @@ async function initFarmerDashboard() {
     await loadCropCatalog();
     await loadFarmerProfileData();
     await loadFarmerHarvests();
+    await loadFarmerOrders();
 }
 
 async function loadCropCatalog() {
@@ -1408,6 +1426,7 @@ window.closeFarmerQualityModal = closeFarmerQualityModal;
 async function initAdminQualityDashboard() {
     await loadAdminQualityMetrics();
     await loadAdminQualityQueue();
+    await loadAdminOrders();
 }
 
 async function loadAdminQualityMetrics() {
@@ -1856,6 +1875,7 @@ async function initBuyerDashboard() {
     setupBuyerEventListeners();
     await loadBuyerMetrics();
     await loadBuyerRequirements();
+    await loadBuyerOrders();
 }
 
 async function loadBuyerCropsCatalog() {
@@ -2390,6 +2410,8 @@ async function openMatchingModal(requirementId) {
     if (loading) loading.classList.remove('hidden');
     if (modal) modal.classList.remove('hidden');
 
+    currentMatchedRequirementId = requirementId;
+
     // Populate placeholder while fetching
     document.getElementById('match-req-id').textContent = `#REQ-${requirementId}`;
     document.getElementById('match-req-crop').textContent = 'Loading requirement details...';
@@ -2524,9 +2546,14 @@ function renderMatchingResults(data) {
 
                 <div class="matched-card-footer">
                     <small style="color: #64748b;">Harvest Lot #${m.harvestId} &bull; Harvest Date: ${m.harvestDate || 'N/A'}</small>
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="openMatchQualityModal(${m.harvestId})">
-                        🔬 View Quality Inspection
-                    </button>
+                    <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="openMatchQualityModal(${m.harvestId})">
+                            🔬 View Quality Inspection
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="openPlaceOrderModal(${m.harvestId})">
+                            🛒 Place Order
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -2588,3 +2615,827 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeMatchQualityModalBtn) closeMatchQualityModalBtn.addEventListener('click', closeMatchQualityModal);
 });
 
+// ===================================================================
+// Phase 8: Order Management Module
+// ===================================================================
+
+function formatOrderDateTime(isoString) {
+    if (!isoString) return 'N/A';
+    try {
+        const d = new Date(isoString);
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) + ' ' +
+               d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    } catch {
+        return isoString;
+    }
+}
+
+function getOrderStatusPill(status) {
+    const s = (status || 'PENDING').toUpperCase();
+    let badgeClass = 'status-pending';
+    if (s === 'ACCEPTED') badgeClass = 'status-accepted';
+    else if (s === 'REJECTED') badgeClass = 'status-rejected';
+    else if (s === 'CANCELLED') badgeClass = 'status-cancelled';
+    return `<span class="status-pill ${badgeClass}">${s}</span>`;
+}
+
+// -------------------------------------------------------------------
+// 1. Buyer: Place Order Workflow
+// -------------------------------------------------------------------
+
+function openPlaceOrderModal(harvestId) {
+    const match = currentMatchedHarvests.find(m => m.harvestId === harvestId);
+    if (!match) {
+        alert('Selected harvest details could not be found.');
+        return;
+    }
+
+    activeOrderUnitPrice = parseFloat(match.pricePerKg) || 0;
+
+    // Populate modal context
+    document.getElementById('order-harvest-id').value = match.harvestId;
+    document.getElementById('order-req-id').value = currentMatchedRequirementId || '';
+    document.getElementById('order-crop-name').textContent = match.cropName || ('Crop #' + match.cropId);
+    document.getElementById('order-farmer-name').textContent = match.farmerName || ('Farmer #' + match.farmerId);
+    document.getElementById('order-available-qty').textContent = `${parseFloat(match.availableQuantity).toLocaleString()} kg`;
+    document.getElementById('order-unit-price').textContent = `₹${activeOrderUnitPrice.toFixed(2)} / kg`;
+
+    const gradeEl = document.getElementById('order-quality-grade');
+    if (gradeEl) {
+        gradeEl.textContent = `Grade ${match.qualityGrade}`;
+        gradeEl.className = `grade-badge ${match.qualityGrade === 'A' ? 'grade-a' : (match.qualityGrade === 'B' ? 'grade-b' : 'grade-c')}`;
+    }
+
+    // Default quantity (min of 50 or availableQuantity)
+    const qtyInput = document.getElementById('order-quantity-input');
+    const defaultQty = Math.min(parseFloat(match.availableQuantity), 50);
+    qtyInput.value = defaultQty;
+    qtyInput.max = match.availableQuantity;
+    qtyInput.min = 1;
+
+    document.getElementById('order-remarks-input').value = '';
+    const alertBox = document.getElementById('place-order-modal-alert');
+    if (alertBox) alertBox.classList.add('hidden');
+    const errorEl = document.getElementById('order-quantity-error');
+    if (errorEl) errorEl.textContent = '';
+
+    updateOrderLivePreview();
+
+    const modal = document.getElementById('place-order-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+window.openPlaceOrderModal = openPlaceOrderModal;
+
+function updateOrderLivePreview() {
+    const qtyInput = document.getElementById('order-quantity-input');
+    const qty = parseFloat(qtyInput.value) || 0;
+    const total = qty * activeOrderUnitPrice;
+
+    const calcQty = document.getElementById('order-calc-qty');
+    const calcRate = document.getElementById('order-calc-rate');
+    const calcTotal = document.getElementById('order-calc-total');
+
+    if (calcQty) calcQty.textContent = `${qty.toLocaleString()} kg`;
+    if (calcRate) calcRate.textContent = `₹${activeOrderUnitPrice.toFixed(2)}`;
+    if (calcTotal) calcTotal.textContent = `₹${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function closePlaceOrderModal() {
+    const modal = document.getElementById('place-order-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closePlaceOrderModal = closePlaceOrderModal;
+
+async function handlePlaceOrderSubmit(e) {
+    e.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const harvestId = parseInt(document.getElementById('order-harvest-id').value, 10);
+    const reqIdVal = document.getElementById('order-req-id').value;
+    const requirementId = reqIdVal ? parseInt(reqIdVal, 10) : null;
+    const quantity = parseFloat(document.getElementById('order-quantity-input').value);
+    const remarks = document.getElementById('order-remarks-input').value.trim();
+
+    const alertBox = document.getElementById('place-order-modal-alert');
+    const errorEl = document.getElementById('order-quantity-error');
+    if (errorEl) errorEl.textContent = '';
+    if (alertBox) alertBox.classList.add('hidden');
+
+    if (isNaN(quantity) || quantity <= 0) {
+        if (errorEl) errorEl.textContent = 'Please enter a valid positive quantity.';
+        return;
+    }
+
+    const payload = {
+        harvestId: harvestId,
+        requirementId: requirementId,
+        quantity: quantity,
+        agreedPricePerKg: activeOrderUnitPrice,
+        remarks: remarks || null
+    };
+
+    setButtonLoading('order-submit-btn', 'order-submit-spinner', 'order-submit-btn-text', true, 'Placing Order...');
+
+    try {
+        const response = await fetch(BUYER_ORDERS_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (response.status === 201 && result && result.data) {
+            closePlaceOrderModal();
+            closeMatchingModal();
+            await loadBuyerOrders();
+            await loadBuyerRequirements();
+            showBuyerOrderAlert(`Order #ORD-${result.data.orderId} successfully placed for ${parseFloat(result.data.quantity).toLocaleString()} kg! Reserved harvest stock.`, 'success');
+        } else {
+            if (alertBox) {
+                alertBox.textContent = result?.message || `Failed to place order (HTTP ${response.status})`;
+                alertBox.className = 'auth-alert error';
+                alertBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Error placing order:', err);
+        if (alertBox) {
+            alertBox.textContent = 'Network or server communication error.';
+            alertBox.className = 'auth-alert error';
+            alertBox.classList.remove('hidden');
+        }
+    } finally {
+        setButtonLoading('order-submit-btn', 'order-submit-spinner', 'order-submit-btn-text', false, 'Confirm & Place Order');
+    }
+}
+
+function showBuyerOrderAlert(message, type = 'success') {
+    const el = document.getElementById('buyer-orders-alert');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => {
+        el.classList.add('hidden');
+    }, 6000);
+}
+
+// -------------------------------------------------------------------
+// 2. Buyer: Order History & Tracking
+// -------------------------------------------------------------------
+
+async function loadBuyerOrders() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(BUYER_ORDERS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            buyerOrders = result.data || [];
+            updateBuyerOrderCounts();
+            renderBuyerOrdersTable();
+        }
+    } catch (err) {
+        console.error('Failed to load buyer purchase orders:', err);
+    }
+}
+
+function updateBuyerOrderCounts() {
+    const all = buyerOrders.length;
+    const pending = buyerOrders.filter(o => o.orderStatus === 'PENDING').length;
+    const accepted = buyerOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const rejected = buyerOrders.filter(o => o.orderStatus === 'REJECTED').length;
+    const cancelled = buyerOrders.filter(o => o.orderStatus === 'CANCELLED').length;
+
+    const elAll = document.getElementById('buyer-order-count-all');
+    const elPending = document.getElementById('buyer-order-count-pending');
+    const elAccepted = document.getElementById('buyer-order-count-accepted');
+    const elRejected = document.getElementById('buyer-order-count-rejected');
+    const elCancelled = document.getElementById('buyer-order-count-cancelled');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elAccepted) elAccepted.textContent = accepted;
+    if (elRejected) elRejected.textContent = rejected;
+    if (elCancelled) elCancelled.textContent = cancelled;
+}
+
+function renderBuyerOrdersTable() {
+    const tbody = document.getElementById('buyer-orders-tbody');
+    if (!tbody) return;
+
+    let filtered = buyerOrders;
+    if (activeBuyerOrderFilter !== 'ALL') {
+        filtered = buyerOrders.filter(o => o.orderStatus === activeBuyerOrderFilter);
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    No purchase orders found with status "${activeBuyerOrderFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(order => {
+        const canCancel = order.orderStatus === 'PENDING';
+        return `
+            <tr>
+                <td><strong>#ORD-${order.orderId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(order.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">Harvest Lot #${order.harvestId}</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(order.farmerName || 'Farmer')}</strong></div>
+                    <small style="color: #64748b;">📍 ${escapeHtml(order.farmLocation || 'N/A')}</small>
+                </td>
+                <td><strong>${parseFloat(order.quantity).toLocaleString()} kg</strong></td>
+                <td>₹${parseFloat(order.agreedPricePerKg).toFixed(2)}/kg</td>
+                <td><strong>₹${parseFloat(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                <td><small>${formatOrderDateTime(order.orderDate)}</small></td>
+                <td>${getOrderStatusPill(order.orderStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="btn-action btn-assess" onclick="openOrderDetailsModal(${order.orderId}, 'BUYER')">
+                            👁️ Details
+                        </button>
+                        ${canCancel ? `
+                            <button type="button" class="btn-action btn-cancel-order" onclick="openCancelOrderModal(${order.orderId})">
+                                🚫 Cancel
+                            </button>
+                        ` : ''}
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function openCancelOrderModal(orderId) {
+    document.getElementById('cancel-target-order-id').value = orderId;
+    document.getElementById('cancel-order-id-label').textContent = `#ORD-${orderId}`;
+    document.getElementById('cancel-reason-input').value = '';
+    const alertBox = document.getElementById('cancel-order-modal-alert');
+    if (alertBox) alertBox.classList.add('hidden');
+
+    const modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+window.openCancelOrderModal = openCancelOrderModal;
+
+function closeCancelOrderModal() {
+    const modal = document.getElementById('cancel-order-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeCancelOrderModal = closeCancelOrderModal;
+
+async function handleCancelOrderSubmit(e) {
+    e.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const orderId = document.getElementById('cancel-target-order-id').value;
+    const reason = document.getElementById('cancel-reason-input').value.trim();
+    const alertBox = document.getElementById('cancel-order-modal-alert');
+
+    setButtonLoading('confirm-cancel-order-btn', 'cancel-order-spinner', 'cancel-order-btn-text', true, 'Cancelling...');
+
+    try {
+        const response = await fetch(`${BUYER_ORDERS_ENDPOINT}/${orderId}/cancel`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason || null })
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (response.ok) {
+            closeCancelOrderModal();
+            await loadBuyerOrders();
+            await loadBuyerRequirements();
+            showBuyerOrderAlert(`Order #ORD-${orderId} was cancelled. Reserved harvest stock restored to farmer inventory.`, 'success');
+        } else {
+            if (alertBox) {
+                alertBox.textContent = result?.message || `Failed to cancel order (HTTP ${response.status})`;
+                alertBox.className = 'auth-alert error';
+                alertBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Error cancelling order:', err);
+        if (alertBox) {
+            alertBox.textContent = 'Network error while attempting cancellation.';
+            alertBox.className = 'auth-alert error';
+            alertBox.classList.remove('hidden');
+        }
+    } finally {
+        setButtonLoading('confirm-cancel-order-btn', 'cancel-order-spinner', 'cancel-order-btn-text', false, 'Confirm Order Cancellation');
+    }
+}
+
+// -------------------------------------------------------------------
+// 3. Farmer: Incoming Orders & Decisions
+// -------------------------------------------------------------------
+
+async function loadFarmerOrders() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(FARMER_ORDERS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            farmerOrders = result.data || [];
+            updateFarmerOrderCounts();
+            renderFarmerOrdersTable();
+        }
+    } catch (err) {
+        console.error('Failed to load farmer incoming orders:', err);
+    }
+}
+
+function updateFarmerOrderCounts() {
+    const all = farmerOrders.length;
+    const pending = farmerOrders.filter(o => o.orderStatus === 'PENDING').length;
+    const accepted = farmerOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const rejected = farmerOrders.filter(o => o.orderStatus === 'REJECTED').length;
+    const cancelled = farmerOrders.filter(o => o.orderStatus === 'CANCELLED').length;
+
+    const elAll = document.getElementById('farmer-order-count-all');
+    const elPending = document.getElementById('farmer-order-count-pending');
+    const elAccepted = document.getElementById('farmer-order-count-accepted');
+    const elRejected = document.getElementById('farmer-order-count-rejected');
+    const elCancelled = document.getElementById('farmer-order-count-cancelled');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elAccepted) elAccepted.textContent = accepted;
+    if (elRejected) elRejected.textContent = rejected;
+    if (elCancelled) elCancelled.textContent = cancelled;
+}
+
+function renderFarmerOrdersTable() {
+    const tbody = document.getElementById('farmer-orders-tbody');
+    if (!tbody) return;
+
+    let filtered = farmerOrders;
+    if (activeFarmerOrderFilter !== 'ALL') {
+        filtered = farmerOrders.filter(o => o.orderStatus === activeFarmerOrderFilter);
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="9" class="text-center py-4 text-muted">
+                    No orders found with status "${activeFarmerOrderFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(order => {
+        const isPending = order.orderStatus === 'PENDING';
+        return `
+            <tr>
+                <td><strong>#ORD-${order.orderId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(order.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">Harvest Lot #${order.harvestId}</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(order.buyerName || 'Buyer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(order.buyerPhone || '')}</small>
+                </td>
+                <td><strong>${parseFloat(order.quantity).toLocaleString()} kg</strong></td>
+                <td>₹${parseFloat(order.agreedPricePerKg).toFixed(2)}/kg</td>
+                <td><strong>₹${parseFloat(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                <td><small>${formatOrderDateTime(order.orderDate)}</small></td>
+                <td>${getOrderStatusPill(order.orderStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        ${isPending ? `
+                            <button type="button" class="btn-action btn-accept" onclick="handleAcceptFarmerOrder(${order.orderId})">
+                                ✅ Accept
+                            </button>
+                            <button type="button" class="btn-action btn-reject" onclick="openRejectOrderModal(${order.orderId})">
+                                ❌ Reject
+                            </button>
+                        ` : ''}
+                        <button type="button" class="btn-action btn-assess" onclick="openOrderDetailsModal(${order.orderId}, 'FARMER')">
+                            👁️ Details
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function handleAcceptFarmerOrder(orderId) {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (!confirm(`Are you sure you want to accept order #ORD-${orderId}? This confirms the commercial transaction.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${FARMER_ORDERS_ENDPOINT}/${orderId}/accept`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (response.ok) {
+            await loadFarmerOrders();
+            await loadFarmerHarvests();
+            showFarmerOrderAlert(`Order #ORD-${orderId} successfully ACCEPTED! Sale confirmed.`, 'success');
+        } else {
+            showFarmerOrderAlert(result?.message || `Failed to accept order (HTTP ${response.status})`, 'error');
+        }
+    } catch (err) {
+        console.error('Error accepting order:', err);
+        showFarmerOrderAlert('Network error while processing order acceptance.', 'error');
+    }
+}
+window.handleAcceptFarmerOrder = handleAcceptFarmerOrder;
+
+function openRejectOrderModal(orderId) {
+    document.getElementById('reject-target-order-id').value = orderId;
+    document.getElementById('reject-order-id-label').textContent = `#ORD-${orderId}`;
+    document.getElementById('reject-reason-input').value = '';
+    const alertBox = document.getElementById('reject-order-modal-alert');
+    if (alertBox) alertBox.classList.add('hidden');
+
+    const modal = document.getElementById('reject-order-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+window.openRejectOrderModal = openRejectOrderModal;
+
+function closeRejectOrderModal() {
+    const modal = document.getElementById('reject-order-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeRejectOrderModal = closeRejectOrderModal;
+
+async function handleRejectOrderSubmit(e) {
+    e.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const orderId = document.getElementById('reject-target-order-id').value;
+    const reason = document.getElementById('reject-reason-input').value.trim();
+    const alertBox = document.getElementById('reject-order-modal-alert');
+
+    setButtonLoading('confirm-reject-order-btn', 'reject-order-spinner', 'reject-order-btn-text', true, 'Rejecting...');
+
+    try {
+        const response = await fetch(`${FARMER_ORDERS_ENDPOINT}/${orderId}/reject`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason || null })
+        });
+
+        const result = await response.json().catch(() => null);
+
+        if (response.ok) {
+            closeRejectOrderModal();
+            await loadFarmerOrders();
+            await loadFarmerHarvests();
+            showFarmerOrderAlert(`Order #ORD-${orderId} was rejected. Reserved harvest stock was restored.`, 'success');
+        } else {
+            if (alertBox) {
+                alertBox.textContent = result?.message || `Failed to reject order (HTTP ${response.status})`;
+                alertBox.className = 'auth-alert error';
+                alertBox.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Error rejecting order:', err);
+        if (alertBox) {
+            alertBox.textContent = 'Network error while attempting rejection.';
+            alertBox.className = 'auth-alert error';
+            alertBox.classList.remove('hidden');
+        }
+    } finally {
+        setButtonLoading('confirm-reject-order-btn', 'reject-order-spinner', 'reject-order-btn-text', false, 'Confirm Order Rejection');
+    }
+}
+
+function showFarmerOrderAlert(message, type = 'success') {
+    const el = document.getElementById('farmer-orders-alert');
+    if (!el) return;
+    el.textContent = message;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => {
+        el.classList.add('hidden');
+    }, 6000);
+}
+
+// -------------------------------------------------------------------
+// 4. Admin: Order Monitoring & Global Visibility
+// -------------------------------------------------------------------
+
+async function loadAdminOrders() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(ADMIN_ORDERS_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            adminOrders = result.data || [];
+            updateAdminOrderCounts();
+            renderAdminOrdersTable();
+        }
+    } catch (err) {
+        console.error('Failed to load admin marketplace orders:', err);
+    }
+}
+
+function updateAdminOrderCounts() {
+    const all = adminOrders.length;
+    const pending = adminOrders.filter(o => o.orderStatus === 'PENDING').length;
+    const accepted = adminOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const rejected = adminOrders.filter(o => o.orderStatus === 'REJECTED').length;
+    const cancelled = adminOrders.filter(o => o.orderStatus === 'CANCELLED').length;
+
+    const elAll = document.getElementById('admin-order-count-all');
+    const elPending = document.getElementById('admin-order-count-pending');
+    const elAccepted = document.getElementById('admin-order-count-accepted');
+    const elRejected = document.getElementById('admin-order-count-rejected');
+    const elCancelled = document.getElementById('admin-order-count-cancelled');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elAccepted) elAccepted.textContent = accepted;
+    if (elRejected) elRejected.textContent = rejected;
+    if (elCancelled) elCancelled.textContent = cancelled;
+}
+
+function renderAdminOrdersTable() {
+    const tbody = document.getElementById('admin-orders-tbody');
+    if (!tbody) return;
+
+    let filtered = adminOrders;
+    if (activeAdminOrderFilter !== 'ALL') {
+        filtered = adminOrders.filter(o => o.orderStatus === activeAdminOrderFilter);
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="10" class="text-center py-4 text-muted">
+                    No marketplace orders found with status "${activeAdminOrderFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(order => {
+        return `
+            <tr>
+                <td><strong>#ORD-${order.orderId}</strong></td>
+                <td>
+                    <div><strong>${escapeHtml(order.buyerName || 'Buyer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(order.buyerPhone || '')}</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(order.farmerName || 'Farmer')}</strong></div>
+                    <small style="color: #64748b;">📍 ${escapeHtml(order.farmLocation || 'N/A')}</small>
+                </td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(order.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">Lot #${order.harvestId}</small>
+                </td>
+                <td><strong>${parseFloat(order.quantity).toLocaleString()} kg</strong></td>
+                <td>₹${parseFloat(order.agreedPricePerKg).toFixed(2)}/kg</td>
+                <td><strong>₹${parseFloat(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
+                <td><small>${formatOrderDateTime(order.orderDate)}</small></td>
+                <td>${getOrderStatusPill(order.orderStatus)}</td>
+                <td>
+                    <button type="button" class="btn-action btn-assess" onclick="openOrderDetailsModal(${order.orderId}, 'ADMIN')">
+                        👁️ Details
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// -------------------------------------------------------------------
+// 5. Shared: Order Details Modal
+// -------------------------------------------------------------------
+
+async function openOrderDetailsModal(orderId, role = 'BUYER') {
+    const token = getAuthToken();
+    if (!token) return;
+
+    let endpoint = `${BUYER_ORDERS_ENDPOINT}/${orderId}`;
+    if (role === 'FARMER') endpoint = `${FARMER_ORDERS_ENDPOINT}/${orderId}`;
+    else if (role === 'ADMIN') endpoint = `${ADMIN_ORDERS_ENDPOINT}/${orderId}`;
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const order = result.data;
+            if (!order) return;
+
+            document.getElementById('detail-order-id').textContent = `#ORD-${order.orderId}`;
+            document.getElementById('detail-order-status').innerHTML = getOrderStatusPill(order.orderStatus);
+            document.getElementById('detail-order-date').textContent = formatOrderDateTime(order.orderDate);
+            document.getElementById('detail-order-crop').textContent = `${order.cropName} (Lot #${order.harvestId})`;
+            document.getElementById('detail-order-buyer').textContent = `${order.buyerName || 'Buyer'} (${order.buyerPhone || 'N/A'})`;
+            document.getElementById('detail-order-farmer').textContent = `${order.farmerName || 'Farmer'} (${order.farmerPhone || 'N/A'})`;
+            document.getElementById('detail-order-quantity').textContent = `${parseFloat(order.quantity).toLocaleString()} kg`;
+            document.getElementById('detail-order-price').textContent = `₹${parseFloat(order.agreedPricePerKg).toFixed(2)} / kg`;
+            document.getElementById('detail-order-total').textContent = `₹${parseFloat(order.totalAmount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.getElementById('detail-order-location').textContent = order.farmLocation || 'N/A';
+            document.getElementById('detail-order-remarks').textContent = order.remarks || 'None provided';
+
+            const cancelRow = document.getElementById('detail-cancellation-row');
+            const cancelText = document.getElementById('detail-order-cancel-reason');
+            if (order.cancellationReason) {
+                if (cancelText) cancelText.textContent = order.cancellationReason;
+                if (cancelRow) cancelRow.classList.remove('hidden');
+            } else {
+                if (cancelRow) cancelRow.classList.add('hidden');
+            }
+
+            const modal = document.getElementById('order-details-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error('Error opening order details:', err);
+    }
+}
+window.openOrderDetailsModal = openOrderDetailsModal;
+
+function closeOrderDetailsModal() {
+    const modal = document.getElementById('order-details-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeOrderDetailsModal = closeOrderDetailsModal;
+
+// -------------------------------------------------------------------
+// 6. Phase 8 DOM Event Listeners & Binding
+// -------------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Live calculation on Place Order quantity input
+    const orderQtyInput = document.getElementById('order-quantity-input');
+    if (orderQtyInput) {
+        orderQtyInput.addEventListener('input', updateOrderLivePreview);
+        orderQtyInput.addEventListener('change', updateOrderLivePreview);
+    }
+
+    // 2. Place Order Form Submit
+    const placeOrderForm = document.getElementById('place-order-form');
+    if (placeOrderForm) {
+        placeOrderForm.addEventListener('submit', handlePlaceOrderSubmit);
+    }
+
+    // 3. Place Order Modal Close Buttons
+    const closePlaceOrderBtn = document.getElementById('close-place-order-btn');
+    const cancelPlaceOrderBtn = document.getElementById('cancel-place-order-btn');
+    if (closePlaceOrderBtn) closePlaceOrderBtn.addEventListener('click', closePlaceOrderModal);
+    if (cancelPlaceOrderBtn) cancelPlaceOrderBtn.addEventListener('click', closePlaceOrderModal);
+
+    // 4. Order Details Modal Close Buttons
+    const closeOrderDetailBtn = document.getElementById('close-order-detail-btn');
+    const closeOrderDetailFooterBtn = document.getElementById('close-order-detail-footer-btn');
+    if (closeOrderDetailBtn) closeOrderDetailBtn.addEventListener('click', closeOrderDetailsModal);
+    if (closeOrderDetailFooterBtn) closeOrderDetailFooterBtn.addEventListener('click', closeOrderDetailsModal);
+
+    // 5. Cancel Order Modal Submit & Close
+    const cancelOrderForm = document.getElementById('cancel-order-form');
+    if (cancelOrderForm) cancelOrderForm.addEventListener('submit', handleCancelOrderSubmit);
+
+    const closeCancelOrderBtn = document.getElementById('close-cancel-order-btn');
+    const dismissCancelOrderBtn = document.getElementById('dismiss-cancel-order-btn');
+    if (closeCancelOrderBtn) closeCancelOrderBtn.addEventListener('click', closeCancelOrderModal);
+    if (dismissCancelOrderBtn) dismissCancelOrderBtn.addEventListener('click', closeCancelOrderModal);
+
+    // 6. Reject Order Modal Submit & Close
+    const rejectOrderForm = document.getElementById('reject-order-form');
+    if (rejectOrderForm) rejectOrderForm.addEventListener('submit', handleRejectOrderSubmit);
+
+    const closeRejectOrderBtn = document.getElementById('close-reject-order-btn');
+    const dismissRejectOrderBtn = document.getElementById('dismiss-reject-order-btn');
+    if (closeRejectOrderBtn) closeRejectOrderBtn.addEventListener('click', closeRejectOrderModal);
+    if (dismissRejectOrderBtn) dismissRejectOrderBtn.addEventListener('click', closeRejectOrderModal);
+
+    // 7. Refresh Order Buttons
+    const refreshBuyerOrdersBtn = document.getElementById('refresh-buyer-orders-btn');
+    if (refreshBuyerOrdersBtn) {
+        refreshBuyerOrdersBtn.addEventListener('click', async () => {
+            await loadBuyerOrders();
+            showBuyerOrderAlert('Purchase orders list refreshed.', 'success');
+        });
+    }
+
+    const refreshFarmerOrdersBtn = document.getElementById('refresh-farmer-orders-btn');
+    if (refreshFarmerOrdersBtn) {
+        refreshFarmerOrdersBtn.addEventListener('click', async () => {
+            await loadFarmerOrders();
+            showFarmerOrderAlert('Incoming orders list refreshed.', 'success');
+        });
+    }
+
+    const refreshAdminOrdersBtn = document.getElementById('refresh-admin-orders-btn');
+    if (refreshAdminOrdersBtn) {
+        refreshAdminOrdersBtn.addEventListener('click', async () => {
+            await loadAdminOrders();
+            const el = document.getElementById('admin-orders-alert');
+            if (el) {
+                el.textContent = 'Marketplace orders refreshed.';
+                el.className = 'auth-alert auth-alert-success';
+                el.classList.remove('hidden');
+                setTimeout(() => el.classList.add('hidden'), 4000);
+            }
+        });
+    }
+
+    // 8. Order Filter Tabs
+    document.querySelectorAll('.buyer-order-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.buyer-order-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeBuyerOrderFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderBuyerOrdersTable();
+        });
+    });
+
+    document.querySelectorAll('.farmer-order-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.farmer-order-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeFarmerOrderFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderFarmerOrdersTable();
+        });
+    });
+
+    document.querySelectorAll('.admin-order-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.admin-order-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeAdminOrderFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderAdminOrdersTable();
+        });
+    });
+});

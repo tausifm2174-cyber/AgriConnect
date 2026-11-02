@@ -21,7 +21,7 @@
                 </div>
             </div>
             <div class="header-actions">
-                <div class="phase-badge">Phase 7: Quality-Aware Matching</div>
+                <div class="phase-badge">Phase 8: Order Management</div>
             </div>
         </div>
     </header>
@@ -400,6 +400,53 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 8: Incoming Buyer Orders Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📦 Incoming Buyer Orders</h3>
+                            <p class="card-subtitle">Review, accept, or reject commercial purchase orders placed for your listed produce lots.</p>
+                        </div>
+                        <button id="refresh-farmer-orders-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Orders
+                        </button>
+                    </div>
+
+                    <div id="farmer-orders-alert" class="auth-alert hidden"></div>
+
+                    <!-- Order filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab farmer-order-filter-tab active" data-filter="ALL">All Orders (<span id="farmer-order-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-order-filter-tab" data-filter="PENDING">Pending Action (<span id="farmer-order-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-order-filter-tab" data-filter="ACCEPTED">Accepted (<span id="farmer-order-count-accepted">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-order-filter-tab" data-filter="REJECTED">Rejected (<span id="farmer-order-count-rejected">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-order-filter-tab" data-filter="CANCELLED">Cancelled (<span id="farmer-order-count-cancelled">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="farmer-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Crop Details</th>
+                                    <th>Buyer</th>
+                                    <th>Quantity</th>
+                                    <th>Agreed Price</th>
+                                    <th>Total Amount</th>
+                                    <th>Order Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="farmer-orders-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No orders received yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Edit Harvest Modal -->
@@ -582,6 +629,54 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 8: Marketplace Order Monitoring Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📋 Marketplace Order Monitoring</h3>
+                            <p class="card-subtitle">Global oversight of commercial purchase orders, transactions, contract amounts, and fulfillment states.</p>
+                        </div>
+                        <button id="refresh-admin-orders-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh All Orders
+                        </button>
+                    </div>
+
+                    <div id="admin-orders-alert" class="auth-alert hidden"></div>
+
+                    <!-- Order filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab admin-order-filter-tab active" data-filter="ALL">All Orders (<span id="admin-order-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab admin-order-filter-tab" data-filter="PENDING">Pending (<span id="admin-order-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab admin-order-filter-tab" data-filter="ACCEPTED">Accepted (<span id="admin-order-count-accepted">0</span>)</button>
+                        <button type="button" class="filter-tab admin-order-filter-tab" data-filter="REJECTED">Rejected (<span id="admin-order-count-rejected">0</span>)</button>
+                        <button type="button" class="filter-tab admin-order-filter-tab" data-filter="CANCELLED">Cancelled (<span id="admin-order-count-cancelled">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="admin-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Buyer Details</th>
+                                    <th>Farmer Details</th>
+                                    <th>Crop Details</th>
+                                    <th>Quantity</th>
+                                    <th>Agreed Price</th>
+                                    <th>Total Amount</th>
+                                    <th>Order Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-orders-tbody">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">Loading marketplace orders...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Phase 6: Commercial Buyer Requirements Dashboard (Shown exclusively for BUYER role) -->
@@ -740,6 +835,53 @@
                             <tbody id="buyer-requirements-tbody">
                                 <tr>
                                     <td colspan="9" class="text-center py-4 text-muted">No buyer requirements posted yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 8: My Purchase Orders Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📦 My Purchase Orders</h3>
+                            <p class="card-subtitle">Track status, confirmed pricing, supplier fulfillment, and order history for your agricultural purchases.</p>
+                        </div>
+                        <button id="refresh-buyer-orders-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Orders
+                        </button>
+                    </div>
+
+                    <div id="buyer-orders-alert" class="auth-alert hidden"></div>
+
+                    <!-- Order filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab buyer-order-filter-tab active" data-filter="ALL">All Orders (<span id="buyer-order-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-order-filter-tab" data-filter="PENDING">Pending (<span id="buyer-order-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-order-filter-tab" data-filter="ACCEPTED">Accepted (<span id="buyer-order-count-accepted">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-order-filter-tab" data-filter="REJECTED">Rejected (<span id="buyer-order-count-rejected">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-order-filter-tab" data-filter="CANCELLED">Cancelled (<span id="buyer-order-count-cancelled">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="buyer-orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Crop Details</th>
+                                    <th>Farmer</th>
+                                    <th>Quantity</th>
+                                    <th>Agreed Price</th>
+                                    <th>Total Amount</th>
+                                    <th>Order Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-orders-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No purchase orders placed yet.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1151,6 +1293,196 @@
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" id="close-match-quality-btn">Close Inspection</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Phase 8: Place Order Modal -->
+            <div id="place-order-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 620px;">
+                    <div class="modal-header">
+                        <h3>🛒 Place Commercial Purchase Order</h3>
+                        <button type="button" class="modal-close-btn" id="close-place-order-modal-btn">&times;</button>
+                    </div>
+                    <form id="place-order-form" novalidate>
+                        <input type="hidden" id="po-harvest-id">
+                        <input type="hidden" id="po-requirement-id">
+                        <div id="po-modal-alert" class="auth-alert hidden"></div>
+
+                        <!-- Lot & Matching Context -->
+                        <div class="quality-meta-box">
+                            <div><strong>Crop:</strong> <span id="po-ctx-crop">--</span> | <strong>Lot ID:</strong> #<span id="po-ctx-harvest-id">--</span></div>
+                            <div><strong>Farmer:</strong> <span id="po-ctx-farmer">--</span> | <strong>Location:</strong> <span id="po-ctx-location">--</span></div>
+                            <div><strong>Available Stock:</strong> <span id="po-ctx-available">--</span> kg | <strong>Lot Price:</strong> ₹<span id="po-ctx-price">--</span>/kg</div>
+                            <div><strong>Certified Quality:</strong> <span id="po-ctx-grade" class="grade-badge grade-a" style="display:inline-block; margin-top:2px;">Grade A</span> (<span id="po-ctx-score">--</span> / 100) &bull; <span class="status-pill status-available">VERIFIED</span></div>
+                        </div>
+
+                        <div class="form-row" style="margin-top: 1rem;">
+                            <div class="form-group col-6">
+                                <label for="po-quantity">Order Quantity (kg) <span class="required">*</span></label>
+                                <input type="number" id="po-quantity" class="form-input" step="0.5" min="0.1" placeholder="e.g. 200.00" required>
+                                <small class="field-helper" id="po-max-qty-helper">Available: -- kg</small>
+                                <small class="field-error" id="po-quantity-error"></small>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="po-price">Agreed Price (₹ / kg) <span class="required">*</span></label>
+                                <input type="number" id="po-price" class="form-input" step="0.25" min="0.01" required>
+                                <small class="field-helper" id="po-max-price-helper">Standard: ₹--/kg</small>
+                                <small class="field-error" id="po-price-error"></small>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="po-remarks">Order Remarks / Delivery Instructions (Optional)</label>
+                            <input type="text" id="po-remarks" class="form-input" maxlength="255" placeholder="e.g. Standard dispatch to Central Mandi warehouse">
+                        </div>
+
+                        <!-- Real-time Order Calculation Preview -->
+                        <div class="order-calc-preview">
+                            <div>
+                                <span class="order-calc-label">Total Contract Amount</span>
+                                <div style="font-size:0.82rem; color:#64748b;">Formula: Quantity × Agreed Price</div>
+                            </div>
+                            <div class="order-calc-total" id="po-total-preview">₹0.00</div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-place-order-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="submit-place-order-btn">
+                                <span class="btn-spinner hidden" id="po-submit-spinner"></span>
+                                <span id="po-submit-text">Confirm &amp; Place Order</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 8: View Order Details Modal -->
+            <div id="order-details-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>📋 Purchase Order Contract Details</h3>
+                        <button type="button" class="modal-close-btn" id="close-order-details-modal-btn">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding-top: 1rem;">
+                        <div class="quality-display-header">
+                            <div>
+                                <span class="stat-label">Order Reference</span>
+                                <div id="od-order-id" style="font-size: 1.5rem; font-weight: 800; color: var(--primary-color);">#ORD-0</div>
+                                <div style="margin-top: 0.5rem;">
+                                    <span id="od-status-badge" class="status-pill status-pending">PENDING</span>
+                                </div>
+                            </div>
+                            <div class="quality-display-score">
+                                <span class="stat-label">Total Contract Value</span>
+                                <div id="od-total-amount" style="font-size: 1.5rem; font-weight: 800; color: #16a34a;">₹0.00</div>
+                                <small style="color: #64748b;">Agreed Contract Price</small>
+                            </div>
+                        </div>
+
+                        <div class="quality-ratings-breakdown">
+                            <div class="rating-row">
+                                <span>🌾 Crop &amp; Category</span>
+                                <strong id="od-crop-details">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📦 Contract Quantity</span>
+                                <strong id="od-quantity">-- kg</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>💰 Agreed Price per kg</span>
+                                <strong id="od-agreed-price">₹-- / kg</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🧑‍🌾 Farmer Details</span>
+                                <strong id="od-farmer-details">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🏪 Buyer Details</span>
+                                <strong id="od-buyer-details">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📍 Farm / Source Location</span>
+                                <strong id="od-location">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>⭐ Certified Quality Grade</span>
+                                <strong id="od-quality">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="quality-meta-box">
+                            <div><strong>Order Date:</strong> <span id="od-order-date">--</span></div>
+                            <div id="od-remarks-row"><strong>Buyer Remarks:</strong> <span id="od-remarks" style="font-style: italic;">None</span></div>
+                            <div id="od-cancellation-row" class="hidden" style="color: #b91c1c;"><strong>Status Notes / Reason:</strong> <span id="od-cancellation-reason">--</span></div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-order-details-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 8: Cancel Order Modal (Buyer) -->
+            <div id="cancel-order-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 480px;">
+                    <div class="modal-header">
+                        <h3>Cancel Purchase Order</h3>
+                        <button type="button" class="modal-close-btn" id="close-cancel-order-modal-btn">&times;</button>
+                    </div>
+                    <form id="cancel-order-form" novalidate>
+                        <input type="hidden" id="cancel-target-order-id">
+                        <div id="cancel-order-alert" class="auth-alert hidden"></div>
+
+                        <p style="color: #475569; margin-bottom: 1rem;">
+                            Are you sure you want to cancel <strong id="cancel-order-ref">Order #--</strong>?
+                            The reserved harvest inventory will be restored to the farmer's listing immediately.
+                        </p>
+
+                        <div class="form-group">
+                            <label for="cancel-reason-input">Reason for Cancellation (Optional)</label>
+                            <input type="text" id="cancel-reason-input" class="form-input" maxlength="255" placeholder="e.g. Delivery timeline conflict, alternate batch sourced">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-cancel-order-btn">Keep Order</button>
+                            <button type="submit" class="btn btn-danger" id="confirm-cancel-order-btn">
+                                <span class="btn-spinner hidden" id="cancel-order-spinner"></span>
+                                <span id="cancel-order-text">Confirm Cancellation</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 8: Reject Order Modal (Farmer) -->
+            <div id="reject-order-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 480px;">
+                    <div class="modal-header">
+                        <h3>Reject Buyer Order</h3>
+                        <button type="button" class="modal-close-btn" id="close-reject-order-modal-btn">&times;</button>
+                    </div>
+                    <form id="reject-order-form" novalidate>
+                        <input type="hidden" id="reject-target-order-id">
+                        <div id="reject-order-alert" class="auth-alert hidden"></div>
+
+                        <p style="color: #475569; margin-bottom: 1rem;">
+                            Are you sure you want to reject <strong id="reject-order-ref">Order #--</strong>?
+                            The reserved produce quantity will be returned to your active available stock.
+                        </p>
+
+                        <div class="form-group">
+                            <label for="reject-reason-input">Reason for Rejection (Optional)</label>
+                            <input type="text" id="reject-reason-input" class="form-input" maxlength="255" placeholder="e.g. Logistics limitation, produce packaging constraint">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-reject-order-btn">Go Back</button>
+                            <button type="submit" class="btn btn-danger" id="confirm-reject-order-btn">
+                                <span class="btn-spinner hidden" id="reject-order-spinner"></span>
+                                <span id="reject-order-text">Confirm Rejection</span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </section>
