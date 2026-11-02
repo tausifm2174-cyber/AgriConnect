@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AgriConnect - Farmer-to-Market Management System. Phase 6: Buyer Requirements Management.">
+    <title>AgriConnect — Buyer Requirements Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="app-header">
+        <div class="header-container">
+            <div class="brand">
+                <span class="brand-icon">🌱</span>
+                <div>
+                    <h1 class="brand-title">AgriConnect</h1>
+                    <p class="brand-subtitle">Farmer-to-Market Management System</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="phase-badge">Phase 7: Quality-Aware Matching</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero-section">
+            <div class="hero-card">
+                <h2>Secure Authentication &amp; Role-Based Access</h2>
+                <p class="hero-desc">
+                    AgriConnect Phase 3 establishes secure identity, BCrypt password hashing, JWT stateless authentication, transactional profile specialization, and role-based access control for Farmers, Commercial Buyers, and System Administrators.
+                </p>
+            </div>
+        </section>
+
+        <!-- Authentication Section -->
+        <section class="auth-section">
+            <!-- Unauthenticated State: Login / Register Tabs -->
+            <div id="auth-forms-container" class="card auth-card">
+                <div class="tab-header">
+                    <button id="tab-login-btn" class="tab-btn active" type="button">Sign In</button>
+                    <button id="tab-register-btn" class="tab-btn" type="button">Create Account</button>
+                </div>
+
+                <div id="auth-alert" class="auth-alert hidden"></div>
+
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form" novalidate>
+                    <div class="form-group">
+                        <label for="login-email">Email Address <span class="required">*</span></label>
+                        <input type="email" id="login-email" class="form-input" placeholder="e.g. rajesh.patel@kisan.in" required autocomplete="email">
+                        <small class="field-error" id="login-email-error"></small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="login-password">Password <span class="required">*</span></label>
+                        <input type="password" id="login-password" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+                        <small class="field-error" id="login-password-error"></small>
+                    </div>
+
+                    <button type="submit" id="login-submit-btn" class="btn btn-primary btn-block">
+                        <span class="btn-spinner hidden" id="login-spinner"></span>
+                        <span id="login-btn-text">Sign In</span>
+                    </button>
+
+                    <!-- Quick Sample Fill Buttons for Evaluation/Demo -->
+                    <div class="demo-helpers">
+                        <span class="demo-label">Quick Demo Accounts (Password: <code>Password@123</code>):</span>
+                        <div class="demo-buttons">
+                            <button type="button" class="btn-chip" onclick="fillDemoCredentials('rajesh.patel@kisan.in', 'Password@123')">🧑‍🌾 Farmer (Rajesh)</button>
+                            <button type="button" class="btn-chip" onclick="fillDemoCredentials('vikas.gupta@freshmarts.com', 'Password@123')">🏪 Buyer (Vikas)</button>
+                            <button type="button" class="btn-chip" onclick="fillDemoCredentials('admin@agriconnect.org', 'Password@123')">🛡️ Admin (Ramesh)</button>
+                        </div>
+                    </div>
+                </form>
+
+                <!-- Registration Form -->
+                <form id="register-form" class="auth-form hidden" novalidate>
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="reg-fullname">Full Name <span class="required">*</span></label>
+                            <input type="text" id="reg-fullname" class="form-input" placeholder="e.g. Ramesh Patil" required>
+                            <small class="field-error" id="reg-fullname-error"></small>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="reg-role">I Am Registering As <span class="required">*</span></label>
+                            <select id="reg-role" class="form-select" required>
+                                <option value="FARMER">Farmer (Producer)</option>
+                                <option value="BUYER">Buyer (Commercial Trader)</option>
+                            </select>
+                            <small class="field-helper">Admin accounts cannot be registered publicly.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group col-6">
+                            <label for="reg-email">Email Address <span class="required">*</span></label>
+                            <input type="email" id="reg-email" class="form-input" placeholder="e.g. ramesh@kisan.in" required autocomplete="email">
+                            <small class="field-error" id="reg-email-error"></small>
+                        </div>
+                        <div class="form-group col-6">
+                            <label for="reg-phone">Phone Number <span class="required">*</span></label>
+                            <input type="tel" id="reg-phone" class="form-input" placeholder="e.g. +919811122334" required autocomplete="tel">
+                            <small class="field-error" id="reg-phone-error"></small>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reg-password">Password <span class="required">*</span></label>
+                        <input type="password" id="reg-password" class="form-input" placeholder="Minimum 6 characters" required autocomplete="new-password">
+                        <small class="field-error" id="reg-password-error"></small>
+                    </div>
+
+                    <!-- Dynamic Profile Fields: Farmer -->
+                    <div id="farmer-fields" class="profile-fields-box">
+                        <h4 class="profile-box-title">🧑‍🌾 Farmer Profile Details (Optional)</h4>
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="reg-farm-location">Farm Location</label>
+                                <input type="text" id="reg-farm-location" class="form-input" placeholder="e.g. Nashik, Maharashtra">
+                            </div>
+                            <div class="form-group col-3">
+                                <label for="reg-farm-size">Farm Size (Acres)</label>
+                                <input type="number" id="reg-farm-size" class="form-input" step="0.5" min="0.1" placeholder="10.5">
+                            </div>
+                            <div class="form-group col-3">
+                                <label for="reg-farm-exp">Experience (Years)</label>
+                                <input type="number" id="reg-farm-exp" class="form-input" min="0" placeholder="5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Profile Fields: Buyer -->
+                    <div id="buyer-fields" class="profile-fields-box hidden">
+                        <h4 class="profile-box-title">🏪 Commercial Buyer Details (Optional)</h4>
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="reg-business-name">Business Name</label>
+                                <input type="text" id="reg-business-name" class="form-input" placeholder="e.g. Patil Agro Traders">
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="reg-business-type">Business Type</label>
+                                <select id="reg-business-type" class="form-select">
+                                    <option value="RETAILER">Retailer</option>
+                                    <option value="WHOLESALER">Wholesaler</option>
+                                    <option value="PROCESSOR">Food Processor</option>
+                                    <option value="EXPORTER">Exporter</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="reg-business-address">Business Address</label>
+                                <input type="text" id="reg-business-address" class="form-input" placeholder="e.g. APMC Mandi, Pune">
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="reg-gstin">GSTIN (Optional)</label>
+                                <input type="text" id="reg-gstin" class="form-input" placeholder="e.g. 27ABCDE1234F1Z5">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="register-submit-btn" class="btn btn-primary btn-block">
+                        <span class="btn-spinner hidden" id="register-spinner"></span>
+                        <span id="register-btn-text">Create Account</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Authenticated State: User Profile Card & Role Authorization Test Bench -->
+            <div id="user-profile-container" class="card user-profile-card hidden">
+                <div class="profile-card-header">
+                    <div class="profile-identity">
+                        <div id="user-avatar" class="user-avatar">👤</div>
+                        <div>
+                            <h3 id="user-display-name">Logged In User</h3>
+                            <p id="user-display-email" class="user-email-text">user@example.com</p>
+                        </div>
+                    </div>
+                    <button id="logout-btn" class="btn btn-danger" type="button">
+                        <span class="logout-icon">⏻</span> Sign Out
+                    </button>
+                </div>
+
+                <!-- Prominent Role Banner as per Section 19 -->
+                <div id="role-status-banner" class="role-status-banner">
+                    <span id="role-status-text">Logged in as Farmer</span>
+                </div>
+
+                <div class="user-details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">User ID</span>
+                        <span id="user-detail-id" class="detail-value">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Registered Phone</span>
+                        <span id="user-detail-phone" class="detail-value">--</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Account Status</span>
+                        <span id="user-detail-status" class="badge-status-active">ACTIVE</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Assigned Role</span>
+                        <span id="user-detail-role" class="detail-value role-tag">--</span>
+                    </div>
+                </div>
+
+                <!-- Profile Specialization Details -->
+                <div id="profile-specialization-box" class="profile-spec-box hidden">
+                    <h4 id="spec-box-title" class="spec-title">Specialization Profile</h4>
+                    <div id="spec-box-content" class="spec-content"></div>
+                </div>
+
+                <!-- Phase 3 Authorization Test Bench -->
+                <div class="auth-test-bench">
+                    <div class="test-bench-header">
+                        <h4>Role-Based Access Verification (Phase 3 Boundaries)</h4>
+                        <p class="test-bench-desc">
+                            Test role-based endpoint permissions. Your current role must be authorized to access corresponding endpoints, while unpermitted endpoints will return HTTP 403 Forbidden.
+                        </p>
+                    </div>
+
+                    <div class="test-bench-buttons">
+                        <button type="button" class="btn btn-test btn-farmer-test" onclick="testProtectedEndpoint('/api/farmer/test', 'FARMER')">
+                            🌾 Test Farmer Endpoint (<code>/api/farmer/test</code>)
+                        </button>
+                        <button type="button" class="btn btn-test btn-buyer-test" onclick="testProtectedEndpoint('/api/buyer/test', 'BUYER')">
+                            🛒 Test Buyer Endpoint (<code>/api/buyer/test</code>)
+                        </button>
+                        <button type="button" class="btn btn-test btn-admin-test" onclick="testProtectedEndpoint('/api/admin/test', 'ADMIN')">
+                            🛡️ Test Admin Endpoint (<code>/api/admin/test</code>)
+                        </button>
+                    </div>
+
+                    <div id="test-result-box" class="test-result-box hidden">
+                        <div class="test-result-header">
+                            <span id="test-endpoint-badge" class="endpoint-badge">GET /api/...</span>
+                            <span id="test-status-badge" class="test-status-code">HTTP 200</span>
+                        </div>
+                        <pre id="test-result-output" class="test-result-output"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 4: Farmer Dashboard (Shown exclusively for FARMER role) -->
+            <section id="farmer-dashboard-section" class="farmer-dashboard hidden">
+                <!-- Farmer Overview Stats -->
+                <div class="card dashboard-card">
+                    <div class="dashboard-header">
+                        <div>
+                            <h3>🌾 Farmer Management Dashboard</h3>
+                            <p class="card-subtitle">Manage your harvested agricultural lots, track stock availability, and list crops for commercial buyers.</p>
+                        </div>
+                        <button id="edit-farmer-profile-btn" class="btn btn-secondary" type="button">
+                            ✏️ Edit Farm Profile
+                        </button>
+                    </div>
+
+                    <div class="farmer-stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-icon">📍</span>
+                            <div>
+                                <span class="stat-label">Farm Location</span>
+                                <strong id="stat-farm-location" class="stat-val">--</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🚜</span>
+                            <div>
+                                <span class="stat-label">Farm Size</span>
+                                <strong id="stat-farm-size" class="stat-val">-- Acres</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">⏳</span>
+                            <div>
+                                <span class="stat-label">Experience</span>
+                                <strong id="stat-farm-exp" class="stat-val">-- Years</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">📦</span>
+                            <div>
+                                <span class="stat-label">Total Harvest Lots</span>
+                                <strong id="stat-total-harvests" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card highlight">
+                            <span class="stat-icon">🟢</span>
+                            <div>
+                                <span class="stat-label">Active Listed Lots</span>
+                                <strong id="stat-active-harvests" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add New Harvest Card -->
+                <div class="card add-harvest-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>➕ Add New Harvest Lot</h3>
+                            <p class="card-subtitle">List a newly harvested crop lot with initial quantity and pricing per kilogram.</p>
+                        </div>
+                    </div>
+
+                    <div id="harvest-alert" class="auth-alert hidden"></div>
+
+                    <form id="create-harvest-form" class="harvest-form" novalidate>
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="harvest-crop-select">Select Crop from Catalog <span class="required">*</span></label>
+                                <select id="harvest-crop-select" class="form-select" required>
+                                    <option value="">-- Loading crops... --</option>
+                                </select>
+                                <small class="field-error" id="harvest-crop-error"></small>
+                            </div>
+
+                            <div class="form-group col-3">
+                                <label for="harvest-quantity">Quantity (kg) <span class="required">*</span></label>
+                                <input type="number" id="harvest-quantity" class="form-input" step="0.5" min="0.1" placeholder="e.g. 1000.00" required>
+                                <small class="field-error" id="harvest-quantity-error"></small>
+                            </div>
+
+                            <div class="form-group col-3">
+                                <label for="harvest-price">Price (₹ / kg) <span class="required">*</span></label>
+                                <input type="number" id="harvest-price" class="form-input" step="0.25" min="0.01" placeholder="e.g. 25.00" required>
+                                <small class="field-error" id="harvest-price-error"></small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="harvest-date">Harvest Date <span class="required">*</span></label>
+                                <input type="date" id="harvest-date" class="form-input" required>
+                                <small class="field-error" id="harvest-date-error"></small>
+                            </div>
+
+                            <div class="form-group col-6">
+                                <label for="harvest-location">Storage / Farm Location <span class="required">*</span></label>
+                                <input type="text" id="harvest-location" class="form-input" placeholder="e.g. Nashik APMC Mandi, Maharashtra" required>
+                                <small class="field-error" id="harvest-location-error"></small>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" id="add-harvest-btn" class="btn btn-primary">
+                                <span class="btn-spinner hidden" id="add-harvest-spinner"></span>
+                                <span id="add-harvest-text">List Harvest Lot</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- My Harvest Lots Table Card -->
+                <div class="card my-harvests-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>📋 My Harvested Lots</h3>
+                            <p class="card-subtitle">Real-time listing of your crops with current inventory levels and pricing.</p>
+                        </div>
+                        <button id="refresh-harvests-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Harvests
+                        </button>
+                    </div>
+
+                    <!-- Filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab active" data-filter="ALL">All Lots (<span id="filter-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab" data-filter="AVAILABLE">Available (<span id="filter-count-avail">0</span>)</button>
+                        <button type="button" class="filter-tab" data-filter="PARTIALLY_SOLD">Partially Sold (<span id="filter-count-part">0</span>)</button>
+                        <button type="button" class="filter-tab" data-filter="SOLD_OUT">Sold Out (<span id="filter-count-sold">0</span>)</button>
+                        <button type="button" class="filter-tab" data-filter="CANCELLED">Cancelled (<span id="filter-count-canc">0</span>)</button>
+                    </div>
+
+                    <div id="harvests-table-container" class="table-responsive">
+                        <table class="harvests-table" id="harvests-table">
+                            <thead>
+                                <tr>
+                                    <th>Lot ID</th>
+                                    <th>Crop Details</th>
+                                    <th>Available / Initial</th>
+                                    <th>Price (₹/kg)</th>
+                                    <th>Harvest Date</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="harvests-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">No harvest lots listed yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Edit Harvest Modal -->
+            <div id="edit-harvest-modal" class="modal-backdrop hidden">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3 id="modal-crop-title">Edit Harvest Lot</h3>
+                        <button type="button" class="modal-close-btn" id="close-edit-modal-btn">&times;</button>
+                    </div>
+                    <form id="edit-harvest-form" novalidate>
+                        <input type="hidden" id="edit-harvest-id">
+                        <div id="edit-modal-alert" class="auth-alert hidden"></div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-available-qty">Available Quantity (kg)</label>
+                                <input type="number" id="edit-available-qty" class="form-input" step="0.5" min="0" required>
+                                <small class="field-helper" id="edit-max-qty-helper">Max: Initial quantity</small>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-price">Price (₹ / kg)</label>
+                                <input type="number" id="edit-price" class="form-input" step="0.25" min="0.01" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-date">Harvest Date</label>
+                                <input type="date" id="edit-date" class="form-input" required>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-status">Lot Status</label>
+                                <select id="edit-status" class="form-select">
+                                    <option value="AVAILABLE">AVAILABLE</option>
+                                    <option value="PARTIALLY_SOLD">PARTIALLY_SOLD</option>
+                                    <option value="SOLD_OUT">SOLD_OUT</option>
+                                    <option value="CANCELLED">CANCELLED</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit-location">Storage / Farm Location</label>
+                            <input type="text" id="edit-location" class="form-input" required>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-edit-modal-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="save-harvest-changes-btn">
+                                <span class="btn-spinner hidden" id="edit-save-spinner"></span>
+                                <span id="edit-save-text">Save Changes</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Edit Farmer Profile Modal -->
+            <div id="edit-farmer-modal" class="modal-backdrop hidden">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3>Update Farmer Profile</h3>
+                        <button type="button" class="modal-close-btn" id="close-profile-modal-btn">&times;</button>
+                    </div>
+                    <form id="edit-farmer-form" novalidate>
+                        <div id="edit-profile-alert" class="auth-alert hidden"></div>
+
+                        <div class="form-group">
+                            <label for="edit-profile-location">Farm Location</label>
+                            <input type="text" id="edit-profile-location" class="form-input" placeholder="e.g. Nashik, Maharashtra" required>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-profile-size">Farm Size (Acres)</label>
+                                <input type="number" id="edit-profile-size" class="form-input" step="0.1" min="0.1" required>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-profile-exp">Experience (Years)</label>
+                                <input type="number" id="edit-profile-exp" class="form-input" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-profile-modal-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="save-profile-btn">
+                                <span class="btn-spinner hidden" id="save-profile-spinner"></span>
+                                <span id="save-profile-text">Update Profile</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 5: Admin Quality Management Dashboard (Shown exclusively for ADMIN role) -->
+            <section id="admin-quality-section" class="admin-quality-section hidden">
+                <!-- Quality Assessment Overview Metrics -->
+                <div class="card dashboard-card">
+                    <div class="dashboard-header">
+                        <div>
+                            <h3>🛡️ Admin Quality Management &amp; Verification</h3>
+                            <p class="card-subtitle">Official inspection authority: evaluate harvest lots, calculate standardized quality scores &amp; grades, and verify listings for commercial markets.</p>
+                        </div>
+                        <button id="refresh-quality-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Queue
+                        </button>
+                    </div>
+
+                    <div class="quality-overview-grid">
+                        <div class="quality-card card-pending">
+                            <span class="quality-card-icon">⏳</span>
+                            <div>
+                                <span class="stat-label">Pending Inspection / Review</span>
+                                <strong id="admin-stat-pending" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="quality-card card-verified">
+                            <span class="quality-card-icon">✅</span>
+                            <div>
+                                <span class="stat-label">Verified Lots</span>
+                                <strong id="admin-stat-verified" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="quality-card card-rejected">
+                            <span class="quality-card-icon">❌</span>
+                            <div>
+                                <span class="stat-label">Rejected Lots</span>
+                                <strong id="admin-stat-rejected" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="quality-card card-total">
+                            <span class="quality-card-icon">📦</span>
+                            <div>
+                                <span class="stat-label">Total Harvest Lots</span>
+                                <strong id="admin-stat-total" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Quality Table Card -->
+                <div class="card quality-table-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>📋 Harvest Quality Assessment Queue</h3>
+                            <p class="card-subtitle">Filter harvest lots by assessment status and perform inspections or verification actions.</p>
+                        </div>
+                    </div>
+
+                    <div id="admin-quality-alert" class="auth-alert hidden"></div>
+
+                    <!-- Quality Queue Filter Tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab admin-q-tab active" data-filter="PENDING">Awaiting Assessment / Verification</button>
+                        <button type="button" class="filter-tab admin-q-tab" data-filter="VERIFIED">Verified Lots</button>
+                        <button type="button" class="filter-tab admin-q-tab" data-filter="REJECTED">Rejected Lots</button>
+                        <button type="button" class="filter-tab admin-q-tab" data-filter="ALL">All Harvest Lots</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="admin-quality-table">
+                            <thead>
+                                <tr>
+                                    <th>Harvest Lot</th>
+                                    <th>Crop Details</th>
+                                    <th>Farmer</th>
+                                    <th>Quantity</th>
+                                    <th>Harvest Date</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Quality &amp; Grade</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-quality-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">Loading harvest quality queue...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Phase 6: Commercial Buyer Requirements Dashboard (Shown exclusively for BUYER role) -->
+            <section id="buyer-dashboard-section" class="buyer-dashboard hidden">
+                <!-- Buyer Overview Metrics (Section 28) -->
+                <div class="card dashboard-card">
+                    <div class="dashboard-header">
+                        <div>
+                            <h3>🏪 Commercial Buyer Requirements Dashboard</h3>
+                            <p class="card-subtitle">Publish, track, edit, and manage your commercial purchase demands and target crop quality specifications.</p>
+                        </div>
+                    </div>
+
+                    <div class="farmer-stats-grid">
+                        <div class="stat-card">
+                            <span class="stat-icon">📋</span>
+                            <div>
+                                <span class="stat-label">Total Requirements</span>
+                                <strong id="stat-buyer-total" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card highlight">
+                            <span class="stat-icon">🟢</span>
+                            <div>
+                                <span class="stat-label">Open / Active</span>
+                                <strong id="stat-buyer-open" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">✅</span>
+                            <div>
+                                <span class="stat-label">Fulfilled</span>
+                                <strong id="stat-buyer-fulfilled" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">⏳</span>
+                            <div>
+                                <span class="stat-label">Expired</span>
+                                <strong id="stat-buyer-expired" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <span class="stat-icon">🚫</span>
+                            <div>
+                                <span class="stat-label">Cancelled</span>
+                                <strong id="stat-buyer-cancelled" class="stat-val">0</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Post New Requirement Form (Section 29) -->
+                <div class="card add-harvest-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>➕ Post New Crop Purchase Requirement</h3>
+                            <p class="card-subtitle">Specify desired crop, required volume, price ceiling, minimum quality grade, preferred location, and target delivery deadline.</p>
+                        </div>
+                    </div>
+
+                    <div id="buyer-req-alert" class="auth-alert hidden"></div>
+
+                    <form id="create-requirement-form" class="harvest-form" novalidate>
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="req-crop-select">Select Crop from Catalog <span class="required">*</span></label>
+                                <select id="req-crop-select" class="form-select" required>
+                                    <option value="">-- Loading crops... --</option>
+                                </select>
+                                <small class="field-error" id="req-crop-error"></small>
+                            </div>
+
+                            <div class="form-group col-3">
+                                <label for="req-quantity">Required Quantity (kg) <span class="required">*</span></label>
+                                <input type="number" id="req-quantity" class="form-input" step="0.5" min="0.1" placeholder="e.g. 500.00" required>
+                                <small class="field-error" id="req-quantity-error"></small>
+                            </div>
+
+                            <div class="form-group col-3">
+                                <label for="req-max-price">Max Price (₹ / kg) <span class="required">*</span></label>
+                                <input type="number" id="req-max-price" class="form-input" step="0.25" min="0.01" placeholder="e.g. 28.00" required>
+                                <small class="field-error" id="req-max-price-error"></small>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-4">
+                                <label for="req-min-grade">Minimum Quality Grade <span class="required">*</span></label>
+                                <select id="req-min-grade" class="form-select" required>
+                                    <option value="A">Grade A (High Quality, 80-100)</option>
+                                    <option value="B" selected>Grade B (Standard, 60-79)</option>
+                                    <option value="C">Grade C (Commercial / Industrial, 0-59)</option>
+                                </select>
+                                <small class="field-error" id="req-min-grade-error"></small>
+                            </div>
+
+                            <div class="form-group col-4">
+                                <label for="req-location">Preferred Delivery / Source Location <span class="required">*</span></label>
+                                <input type="text" id="req-location" class="form-input" placeholder="e.g. Nashik, Maharashtra" required>
+                                <small class="field-error" id="req-location-error"></small>
+                            </div>
+
+                            <div class="form-group col-4">
+                                <label for="req-required-by">Required By Date <span class="required">*</span></label>
+                                <input type="date" id="req-required-by" class="form-input" required>
+                                <small class="field-error" id="req-required-by-error"></small>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" id="add-req-btn" class="btn btn-primary">
+                                <span class="btn-spinner hidden" id="add-req-spinner"></span>
+                                <span id="add-req-text">Post Requirement</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- My Requirements Table Card (Section 30) -->
+                <div class="card my-harvests-card">
+                    <div class="card-header">
+                        <div>
+                            <h3>📋 My Posted Requirements</h3>
+                            <p class="card-subtitle">Active demand specifications eligible for future quality-aware farmer matching.</p>
+                        </div>
+                        <button id="refresh-buyer-req-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Requirements
+                        </button>
+                    </div>
+
+                    <!-- Filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab buyer-filter-tab active" data-filter="ALL">All Requirements (<span id="buyer-filter-all">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-filter-tab" data-filter="OPEN">Open (<span id="buyer-filter-open">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-filter-tab" data-filter="FULFILLED">Fulfilled (<span id="buyer-filter-fulfilled">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-filter-tab" data-filter="EXPIRED">Expired (<span id="buyer-filter-expired">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-filter-tab" data-filter="CANCELLED">Cancelled (<span id="buyer-filter-cancelled">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="buyer-requirements-table">
+                            <thead>
+                                <tr>
+                                    <th>Req ID</th>
+                                    <th>Crop Details</th>
+                                    <th>Quantity</th>
+                                    <th>Max Price</th>
+                                    <th>Min Grade</th>
+                                    <th>Location</th>
+                                    <th>Required By</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-requirements-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No buyer requirements posted yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Assessment Modal (Create / Edit Quality Assessment) -->
+            <div id="admin-assess-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 620px;">
+                    <div class="modal-header">
+                        <h3 id="assess-modal-title">Official Quality Assessment</h3>
+                        <button type="button" class="modal-close-btn" id="close-assess-modal-btn">&times;</button>
+                    </div>
+                    <form id="admin-assess-form" novalidate>
+                        <input type="hidden" id="assess-harvest-id">
+                        <input type="hidden" id="assess-existing-id">
+                        <div id="assess-modal-alert" class="auth-alert hidden"></div>
+
+                        <!-- Lot Context Card -->
+                        <div class="quality-meta-box" id="assess-lot-context">
+                            <div><strong>Crop:</strong> <span id="assess-ctx-crop">--</span> | <strong>Farmer:</strong> <span id="assess-ctx-farmer">--</span></div>
+                            <div><strong>Available:</strong> <span id="assess-ctx-qty">--</span> kg | <strong>Harvest Date:</strong> <span id="assess-ctx-date">--</span></div>
+                            <div><strong>Location:</strong> <span id="assess-ctx-location">--</span></div>
+                        </div>
+
+                        <!-- Score Calculation Preview (Section 24) -->
+                        <div class="score-preview-box">
+                            <div>
+                                <span class="stat-label">Calculated Quality Score (Preview)</span>
+                                <div class="score-preview-value">
+                                    <span class="score-number" id="preview-score-num">--</span>
+                                    <span class="score-scale">/ 100</span>
+                                </div>
+                                <small style="color: #64748b;">Formula: Average(5 parameters) × 10</small>
+                            </div>
+                            <div style="text-align: right;">
+                                <span class="stat-label">Determined Grade</span>
+                                <div id="preview-grade-badge" class="grade-badge" style="margin-top: 0.25rem;">Pending</div>
+                            </div>
+                        </div>
+
+                        <!-- 5 Quality Parameters (Scale 1 - 10) -->
+                        <div class="param-grid">
+                            <div class="param-item">
+                                <label for="param-freshness">Freshness (1–10) *</label>
+                                <input type="number" id="param-freshness" class="param-input" min="1" max="10" value="8" required>
+                            </div>
+                            <div class="param-item">
+                                <label for="param-appearance">Appearance (1–10) *</label>
+                                <input type="number" id="param-appearance" class="param-input" min="1" max="10" value="8" required>
+                            </div>
+                            <div class="param-item">
+                                <label for="param-size">Size (1–10) *</label>
+                                <input type="number" id="param-size" class="param-input" min="1" max="10" value="8" required>
+                            </div>
+                            <div class="param-item">
+                                <label for="param-color">Color (1–10) *</label>
+                                <input type="number" id="param-color" class="param-input" min="1" max="10" value="8" required>
+                            </div>
+                            <div class="param-item">
+                                <label for="param-ripeness">Ripeness (1–10) *</label>
+                                <input type="number" id="param-ripeness" class="param-input" min="1" max="10" value="8" required>
+                            </div>
+                            <div class="param-item">
+                                <label for="param-damage">Damage % (0–100) *</label>
+                                <input type="number" id="param-damage" class="param-input" min="0" max="100" step="0.5" value="3.0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="param-notes">Inspector Assessment Notes / Remarks</label>
+                            <input type="text" id="param-notes" class="form-input" maxlength="255" placeholder="e.g. Uniform coloration, moisture verified, minor transit blemish">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-assess-modal-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="save-assessment-btn">
+                                <span class="btn-spinner hidden" id="save-assess-spinner"></span>
+                                <span id="save-assess-text">Save Official Assessment</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Farmer Quality Inspection Modal (Read-Only) -->
+            <div id="farmer-quality-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 520px;">
+                    <div class="modal-header">
+                        <h3 id="farmer-q-modal-title">⭐ Harvest Quality Certificate</h3>
+                        <button type="button" class="modal-close-btn" id="close-farmer-q-modal-btn">&times;</button>
+                    </div>
+
+                    <div id="farmer-q-modal-body">
+                        <!-- Quality Header with Score and Grade -->
+                        <div class="quality-display-header">
+                            <div>
+                                <span class="stat-label">Official Grade</span>
+                                <div id="farmer-q-grade-badge" class="grade-badge" style="font-size: 1.1rem; padding: 0.35rem 0.85rem; margin-top: 0.25rem;">Grade A</div>
+                                <div style="margin-top: 0.5rem;">
+                                    <span id="farmer-q-status-badge" class="verif-badge verif-verified">VERIFIED</span>
+                                </div>
+                            </div>
+                            <div class="quality-display-score">
+                                <span class="stat-label">Quality Score</span>
+                                <div class="quality-score-large" id="farmer-q-score">86.00</div>
+                                <small style="color: #64748b;">out of 100</small>
+                            </div>
+                        </div>
+
+                        <!-- 6 Quality Parameter Ratings Breakdown -->
+                        <div class="quality-ratings-breakdown">
+                            <div class="rating-row">
+                                <span>🌿 Freshness Rating</span>
+                                <strong id="farmer-q-freshness">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>✨ Appearance Rating</span>
+                                <strong id="farmer-q-appearance">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📏 Size Uniformity</span>
+                                <strong id="farmer-q-size">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🎨 Color Vibrancy</span>
+                                <strong id="farmer-q-color">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🍎 Ripeness Index</span>
+                                <strong id="farmer-q-ripeness">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>⚠️ Defect / Damage</span>
+                                <strong id="farmer-q-damage">--%</strong>
+                            </div>
+                        </div>
+
+                        <!-- Metadata & Inspector Notes -->
+                        <div class="quality-meta-box">
+                            <div><strong>Harvest Date:</strong> <span id="farmer-q-harvest-date">--</span></div>
+                            <div><strong>Assessment Date:</strong> <span id="farmer-q-assess-date">--</span></div>
+                            <div><strong>Certified Inspector:</strong> <span id="farmer-q-inspector">--</span></div>
+                            <div><strong>Inspector Remarks:</strong> <em id="farmer-q-notes">--</em></div>
+                        </div>
+                    </div>
+
+                    <!-- Not Assessed Yet Fallback -->
+                    <div id="farmer-q-unassessed-body" class="hidden text-center py-4">
+                        <div style="font-size: 3rem; margin-bottom: 0.5rem;">⏳</div>
+                        <h4>Quality Assessment Pending</h4>
+                        <p style="color: #64748b; margin-top: 0.5rem;">This harvest lot is awaiting administrative inspection and verification. Check back once an authorized inspector has certified your produce.</p>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-farmer-q-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Edit Buyer Requirement Modal (Section 31) -->
+            <div id="edit-requirement-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3 id="edit-req-modal-title">Edit Buyer Requirement</h3>
+                        <button type="button" class="modal-close-btn" id="close-edit-req-modal-btn">&times;</button>
+                    </div>
+                    <form id="edit-requirement-form" novalidate>
+                        <input type="hidden" id="edit-req-id">
+                        <div id="edit-req-alert" class="auth-alert hidden"></div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-req-crop">Select Crop <span class="required">*</span></label>
+                                <select id="edit-req-crop" class="form-select" required></select>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-req-quantity">Required Quantity (kg) <span class="required">*</span></label>
+                                <input type="number" id="edit-req-quantity" class="form-input" step="0.5" min="0.1" required>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-req-price">Maximum Price (₹ / kg) <span class="required">*</span></label>
+                                <input type="number" id="edit-req-price" class="form-input" step="0.25" min="0.01" required>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-req-grade">Minimum Quality Grade <span class="required">*</span></label>
+                                <select id="edit-req-grade" class="form-select" required>
+                                    <option value="A">Grade A (High Quality, 80-100)</option>
+                                    <option value="B">Grade B (Standard, 60-79)</option>
+                                    <option value="C">Grade C (Commercial / Industrial, 0-59)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="edit-req-location">Preferred Location <span class="required">*</span></label>
+                                <input type="text" id="edit-req-location" class="form-input" required>
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="edit-req-date">Required By Date <span class="required">*</span></label>
+                                <input type="date" id="edit-req-date" class="form-input" required>
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="cancel-edit-req-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="save-edit-req-btn">
+                                <span class="btn-spinner hidden" id="save-edit-req-spinner"></span>
+                                <span id="save-edit-req-text">Save Changes</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- View Requirement Details Modal (Section 32) -->
+            <div id="view-requirement-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 540px;">
+                    <div class="modal-header">
+                        <h3>📋 Buyer Requirement Details</h3>
+                        <button type="button" class="modal-close-btn" id="close-view-req-modal-btn">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding-top: 1rem;">
+                        <div class="quality-display-header">
+                            <div>
+                                <span class="stat-label">Requirement ID</span>
+                                <div id="view-req-id" style="font-size: 1.5rem; font-weight: 800; color: var(--primary-color);">#REQ-0</div>
+                                <div style="margin-top: 0.5rem;">
+                                    <span id="view-req-status-badge" class="status-pill">OPEN</span>
+                                </div>
+                            </div>
+                            <div class="quality-display-score">
+                                <span class="stat-label">Minimum Quality</span>
+                                <div id="view-req-grade-badge" class="grade-badge" style="font-size: 1.1rem; padding: 0.35rem 0.85rem; margin-top: 0.25rem;">Grade A</div>
+                            </div>
+                        </div>
+
+                        <div class="quality-ratings-breakdown">
+                            <div class="rating-row">
+                                <span>🌾 Crop Name</span>
+                                <strong id="view-req-crop">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📦 Required Quantity</span>
+                                <strong id="view-req-quantity">-- kg</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>💰 Maximum Price</span>
+                                <strong id="view-req-price">₹-- / kg</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📅 Required By Date</span>
+                                <strong id="view-req-date">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="quality-meta-box">
+                            <div><strong>Preferred Location:</strong> <span id="view-req-location">--</span></div>
+                            <div><strong>Posted On:</strong> <span id="view-req-created">--</span></div>
+                            <div><strong>Last Updated:</strong> <span id="view-req-updated">--</span></div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-view-req-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 7: Quality-Aware Matching Modal -->
+            <div id="matching-modal" class="modal-backdrop hidden">
+                <div class="modal-box matching-modal-box" style="max-width: 900px; max-height: 90vh; overflow-y: auto;">
+                    <div class="modal-header">
+                        <div>
+                            <h3 id="matching-modal-title">🎯 Quality-Aware Matching Results</h3>
+                            <p class="card-subtitle" style="margin-top: 0.25rem;">Deterministic algorithmic matching based on verified harvest lots, pricing, quantity coverage, and location.</p>
+                        </div>
+                        <button type="button" class="modal-close-btn" id="close-matching-modal-btn">&times;</button>
+                    </div>
+
+                    <div class="modal-body" style="padding-top: 1rem;">
+                        <div id="matching-alert" class="auth-alert hidden"></div>
+
+                        <!-- Requirement Summary Banner -->
+                        <div class="matching-req-banner" id="matching-req-banner">
+                            <div class="matching-req-header">
+                                <div>
+                                    <span class="stat-label">Requirement Target</span>
+                                    <h4 id="match-req-crop" style="font-size: 1.25rem; font-weight: 700; color: var(--text-color); margin: 0.2rem 0;">--</h4>
+                                    <small id="match-req-id" style="color: #64748b;">#REQ-0</small>
+                                </div>
+                                <div style="text-align: right;">
+                                    <span class="stat-label">Matches Found</span>
+                                    <div id="match-total-count-badge" class="badge-count" style="font-size: 1.2rem; font-weight: 700; color: var(--primary-color);">0 Eligible Harvests</div>
+                                </div>
+                            </div>
+                            <div class="matching-req-specs">
+                                <div><strong>Required Qty:</strong> <span id="match-req-qty">-- kg</span></div>
+                                <div><strong>Max Price:</strong> <span id="match-req-price">₹-- / kg</span></div>
+                                <div><strong>Min Grade:</strong> <span id="match-req-grade" class="grade-badge grade-a">Grade A</span></div>
+                                <div><strong>Location:</strong> <span id="match-req-location">--</span></div>
+                                <div><strong>Target Date:</strong> <span id="match-req-date">--</span></div>
+                            </div>
+                        </div>
+
+                        <!-- Read-only notice -->
+                        <div class="matching-info-banner">
+                            <span>ℹ️ <strong>Read-Only Matching Engine:</strong> Harvest matches are computed dynamically. Viewing matches does NOT reserve or purchase produce.</span>
+                        </div>
+
+                        <!-- Loading indicator -->
+                        <div id="matching-loading" class="text-center py-4 hidden">
+                            <span class="btn-spinner" style="border-top-color: var(--primary-color); width: 2rem; height: 2rem; display: inline-block;"></span>
+                            <p style="margin-top: 0.5rem; color: #64748b;">Evaluating verified harvests against quality, price, and quantity criteria...</p>
+                        </div>
+
+                        <!-- Empty State Container -->
+                        <div id="matching-empty-state" class="matching-empty-state hidden">
+                            <div class="empty-icon">🌾</div>
+                            <h4>No suitable harvests found</h4>
+                            <p>No currently available farmer lot satisfies all your hard criteria:</p>
+                            <ul class="empty-reasons-list">
+                                <li>• Sufficient available inventory (≥ required quantity)</li>
+                                <li>• Price at or below maximum target price</li>
+                                <li>• Official administrator verified quality assessment</li>
+                                <li>• Quality grade satisfying required minimum standard</li>
+                            </ul>
+                            <small class="text-muted">Try adjusting your requirement's quantity, price ceiling, or minimum grade.</small>
+                        </div>
+
+                        <!-- Matches Cards Container -->
+                        <div id="matching-results-list" class="matching-cards-container">
+                            <!-- Dynamically populated matched harvest cards -->
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-matching-btn">Close Matches</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 7: Matched Harvest Quality Inspection Modal -->
+            <div id="match-quality-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 580px;">
+                    <div class="modal-header">
+                        <h3>🔬 Official Verified Quality Inspection</h3>
+                        <button type="button" class="modal-close-btn" id="close-match-quality-modal-btn">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding-top: 1rem;">
+                        <div class="quality-display-header">
+                            <div>
+                                <span class="stat-label">Harvest Lot</span>
+                                <div id="mq-harvest-title" style="font-size: 1.25rem; font-weight: 700; color: var(--primary-color);">Harvest #--</div>
+                                <div id="mq-farmer-name" style="color: #64748b; font-size: 0.9rem;">Farmer: --</div>
+                            </div>
+                            <div class="quality-display-score">
+                                <span class="stat-label">Quality Score</span>
+                                <div class="score-preview-value">
+                                    <span class="score-number" id="mq-quality-score">--</span>
+                                    <span class="score-scale">/ 100</span>
+                                </div>
+                                <div id="mq-grade-badge" class="grade-badge" style="margin-top: 0.35rem;">Grade A</div>
+                            </div>
+                        </div>
+
+                        <div class="verification-badge-row" style="margin: 1rem 0;">
+                            <span class="status-pill status-available" id="mq-verification-badge">VERIFIED</span>
+                            <span style="font-size: 0.85rem; color: #64748b; margin-left: 0.5rem;">Inspected and certified by AgriConnect Quality Board</span>
+                        </div>
+
+                        <div class="quality-ratings-breakdown">
+                            <div class="rating-row">
+                                <span>🌿 Freshness (1-10)</span>
+                                <strong id="mq-freshness">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>✨ Appearance (1-10)</span>
+                                <strong id="mq-appearance">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📏 Size Uniformity (1-10)</span>
+                                <strong id="mq-size">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🎨 Color Development (1-10)</span>
+                                <strong id="mq-color">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🍎 Ripeness (1-10)</span>
+                                <strong id="mq-ripeness">-- / 10</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>⚠️ Damage Percentage</span>
+                                <strong id="mq-damage" style="color: #dc2626;">-- %</strong>
+                            </div>
+                        </div>
+
+                        <div class="quality-meta-box">
+                            <div><strong>Harvest Location:</strong> <span id="mq-location">--</span></div>
+                            <div><strong>Harvest Date:</strong> <span id="mq-date">--</span></div>
+                            <div><strong>Inspector Remarks:</strong> <span id="mq-notes" style="font-style: italic;">--</span></div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-match-quality-btn">Close Inspection</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Phase 1 System Health & Readiness Monitor (Preserved) -->
+        <section class="status-section">
+            <div class="card status-card">
+                <div class="card-header">
+                    <h3>System Connectivity &amp; Health</h3>
+                    <button id="refresh-btn" class="btn btn-secondary">
+                        <span class="refresh-icon">↻</span> Refresh Status
+                    </button>
+                </div>
+
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">Backend Status</span>
+                        <div id="backend-status-badge" class="status-badge checking">
+                            <span class="badge-dot"></span>
+                            <span id="backend-status-text">Backend Status: Checking...</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">Database Connection</span>
+                        <div id="db-status-badge" class="status-badge checking">
+                            <span class="badge-dot"></span>
+                            <span id="db-status-text">Database: Checking...</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">Active Phase</span>
+                        <div class="status-badge info">
+                            <span id="phase-text">Phase 3</span>
+                        </div>
+                    </div>
+
+                    <div class="status-item">
+                        <span class="status-label">Last Checked</span>
+                        <div class="status-badge neutral">
+                            <span id="last-checked-text">--:--:--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="endpoint-details">
+                    <span class="endpoint-tag">REST API Endpoint:</span>
+                    <a id="api-link" href="http://localhost:8080/api/health" target="_blank" rel="noopener noreferrer">
+                        http://localhost:8080/api/health
+                    </a>
+                </div>
+
+                <div id="status-message" class="status-message info">
+                    Testing connection to backend API...
+                </div>
+            </div>
+        </section>
+
+        <!-- Layered Architecture Section (Preserved) -->
+        <section class="architecture-section">
+            <div class="card architecture-card">
+                <h3>Layered Architecture Foundation</h3>
+                <p class="card-subtitle">Clean separation of responsibilities for academic DBMS demonstration:</p>
+                <div class="architecture-flow">
+                    <div class="arch-node">
+                        <span class="arch-icon">💻</span>
+                        <strong>Frontend</strong>
+                        <small>HTML / CSS / Vanilla JS</small>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">
+                        <span class="arch-icon">🔒</span>
+                        <strong>Security / JWT</strong>
+                        <small>Spring Security &amp; BCrypt</small>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">
+                        <span class="arch-icon">🎮</span>
+                        <strong>Controller</strong>
+                        <small>REST API (/api/**)</small>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">
+                        <span class="arch-icon">⚙️</span>
+                        <strong>Service</strong>
+                        <small>Auth &amp; Transactions</small>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">
+                        <span class="arch-icon">📁</span>
+                        <strong>Repository</strong>
+                        <small>Spring Data JPA</small>
+                    </div>
+                    <span class="arch-arrow">→</span>
+                    <div class="arch-node">
+                        <span class="arch-icon">🗄️</span>
+                        <strong>Database</strong>
+                        <small>MySQL (agriconnect_db)</small>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="app-footer">
+        <p>AgriConnect &copy; 2026 — College DBMS Project &bull; Phase 5: Quality Management &amp; Verification</p>
+    </footer>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
