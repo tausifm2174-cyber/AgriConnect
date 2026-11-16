@@ -25,6 +25,12 @@ const BUYER_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/buyer/payments`;
 const FARMER_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/farmer/payments`;
 const ADMIN_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/admin/payments`;
 
+// Phase 11 Price History & Analytics Endpoints
+const FARMER_PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/farmer/price-history`;
+const BUYER_PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/buyer/price-history`;
+const ADMIN_PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/admin/price-history`;
+const PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/price-history`;
+
 const TOKEN_STORAGE_KEY = 'agriconnect_jwt_token';
 
 // State
@@ -60,6 +66,13 @@ let buyerPayments = [];
 let activeBuyerPaymentFilter = 'ALL';
 let adminPayments = [];
 let activeAdminPaymentFilter = 'ALL';
+
+// Phase 11 Price History & Analytics State
+let farmerPriceHistory = [];
+let buyerPriceHistory = [];
+let adminPriceHistory = [];
+let marketplacePriceSummary = null;
+let selectedBuyerCropAnalytics = null;
 
 // DOM Elements - Health Monitor (Phase 1)
 const backendBadge = document.getElementById('backend-status-badge');
@@ -854,6 +867,7 @@ async function initFarmerDashboard() {
     await loadFarmerOrders();
     await loadFarmerDeliveries();
     await loadFarmerPayments();
+    await loadFarmerPriceHistory();
 }
 
 async function loadCropCatalog() {
@@ -1455,6 +1469,7 @@ async function initAdminQualityDashboard() {
     await loadAdminOrders();
     await loadAdminDeliveries();
     await loadAdminPayments();
+    await loadAdminPriceHistory();
 }
 
 async function loadAdminQualityMetrics() {
@@ -1906,6 +1921,7 @@ async function initBuyerDashboard() {
     await loadBuyerOrders();
     await loadBuyerDeliveries();
     await loadBuyerPayments();
+    await loadBuyerPriceHistory();
 }
 
 async function loadBuyerCropsCatalog() {
@@ -4111,6 +4127,418 @@ function showBuyerDeliveryAlert(msg, type = 'success') {
 }
 
 // ===================================================================
+// Phase 11: Price History & Analytics Logic
+// ===================================================================
+
+function showFarmerPriceHistoryAlert(message, type = 'error') {
+    const alert = document.getElementById('farmer-price-history-alert');
+    if (!alert) return;
+    alert.textContent = message;
+    alert.className = `auth-alert alert-${type}`;
+    alert.classList.remove('hidden');
+    setTimeout(() => alert.classList.add('hidden'), 5000);
+}
+
+function showBuyerPriceHistoryAlert(message, type = 'error') {
+    const alert = document.getElementById('buyer-price-history-alert');
+    if (!alert) return;
+    alert.textContent = message;
+    alert.className = `auth-alert alert-${type}`;
+    alert.classList.remove('hidden');
+    setTimeout(() => alert.classList.add('hidden'), 5000);
+}
+
+function showAdminPriceHistoryAlert(message, type = 'error') {
+    const alert = document.getElementById('admin-price-history-alert');
+    if (!alert) return;
+    alert.textContent = message;
+    alert.className = `auth-alert alert-${type}`;
+    alert.classList.remove('hidden');
+    setTimeout(() => alert.classList.add('hidden'), 5000);
+}
+
+function populateCropFilterDropdown(selectElementId, crops) {
+    const select = document.getElementById(selectElementId);
+    if (!select || !crops || crops.length === 0) return;
+    const currentVal = select.value;
+    const defaultLabel = selectElementId === 'buyer-ph-crop-select' ? '-- All Crops Overview --' : 'All Crops';
+    select.innerHTML = `<option value="">${defaultLabel}</option>`;
+    crops.forEach(crop => {
+        const opt = document.createElement('option');
+        opt.value = crop.cropId;
+        opt.textContent = `${crop.cropName} (${crop.category || 'General'})`;
+        select.appendChild(opt);
+    });
+    if (currentVal) select.value = currentVal;
+}
+
+// --- Farmer Price History ---
+
+async function loadFarmerPriceHistory() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (allCrops.length > 0) {
+        populateCropFilterDropdown('farmer-ph-crop-filter', allCrops);
+    }
+
+    const cropId = document.getElementById('farmer-ph-crop-filter')?.value;
+    const startDate = document.getElementById('farmer-ph-start-date')?.value;
+    const endDate = document.getElementById('farmer-ph-end-date')?.value;
+
+    const params = new URLSearchParams();
+    if (cropId) params.append('cropId', cropId);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
+    const url = params.toString() ? `${FARMER_PRICE_HISTORY_ENDPOINT}?${params.toString()}` : FARMER_PRICE_HISTORY_ENDPOINT;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            farmerPriceHistory = result.data || [];
+            renderFarmerPriceHistoryTable();
+        } else {
+            const err = await response.json();
+            showFarmerPriceHistoryAlert(err.message || 'Failed to load sales price history.');
+        }
+    } catch (err) {
+        console.error('Failed to load farmer price history:', err);
+        showFarmerPriceHistoryAlert('Network error loading price history.');
+    }
+}
+
+function renderFarmerPriceHistoryTable() {
+    const tbody = document.getElementById('farmer-price-history-tbody');
+    if (!tbody) return;
+
+    if (farmerPriceHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No sales price records found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = farmerPriceHistory.map(ph => {
+        const price = ph.unitPrice != null ? Number(ph.unitPrice).toFixed(2) : (ph.modalPricePerKg != null ? Number(ph.modalPricePerKg).toFixed(2) : '--');
+        const qty = ph.quantity != null ? Number(ph.quantity).toFixed(2) : '--';
+        const total = ph.totalAmount != null ? Number(ph.totalAmount).toFixed(2) : '--';
+        const isSale = ph.sourceType === 'TRANSACTION_SALE';
+        const sourceBadge = isSale
+            ? '<span class="source-badge source-badge-sale">Sale Contract</span>'
+            : '<span class="source-badge source-badge-mandi">Mandi Benchmark</span>';
+
+        return `
+            <tr>
+                <td><strong>#${ph.priceId}</strong></td>
+                <td>${ph.orderId ? `<span class="txn-badge">#${ph.orderId}</span>` : '<span class="text-muted">--</span>'}</td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(ph.cropName || 'Crop')}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(ph.cropCategory || '')}</div>
+                </td>
+                <td><strong style="color: #15803d;">₹${price}</strong></td>
+                <td>${qty} kg</td>
+                <td><strong>₹${total}</strong></td>
+                <td>${escapeHtml(ph.marketLocation || 'Direct Farm')}</td>
+                <td>${escapeHtml(ph.recordedDate || '')}</td>
+                <td>${sourceBadge}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Buyer Price History & Analytics ---
+
+async function loadBuyerPriceHistory() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (allCrops.length > 0) {
+        populateCropFilterDropdown('buyer-ph-crop-select', allCrops);
+    }
+
+    const cropSelect = document.getElementById('buyer-ph-crop-select');
+    const cropId = cropSelect ? cropSelect.value : '';
+    const startDate = document.getElementById('buyer-ph-start-date')?.value;
+    const endDate = document.getElementById('buyer-ph-end-date')?.value;
+
+    const params = new URLSearchParams();
+    if (cropId) params.append('cropId', cropId);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
+    const url = params.toString() ? `${BUYER_PRICE_HISTORY_ENDPOINT}?${params.toString()}` : BUYER_PRICE_HISTORY_ENDPOINT;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            buyerPriceHistory = result.data || [];
+            renderBuyerPriceHistoryTable();
+        }
+
+        // If specific crop selected, load crop analytics
+        if (cropId) {
+            await loadBuyerCropAnalytics(cropId, startDate, endDate);
+        } else {
+            resetBuyerCropAnalyticsDisplay();
+        }
+    } catch (err) {
+        console.error('Failed to load buyer price history:', err);
+    }
+}
+
+async function loadBuyerCropAnalytics(cropId, startDate, endDate) {
+    const token = getAuthToken();
+    if (!token || !cropId) return;
+
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+
+    const url = params.toString()
+        ? `${BUYER_PRICE_HISTORY_ENDPOINT}/analytics/${cropId}?${params.toString()}`
+        : `${BUYER_PRICE_HISTORY_ENDPOINT}/analytics/${cropId}`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            selectedBuyerCropAnalytics = result.data;
+            renderBuyerCropAnalytics(selectedBuyerCropAnalytics);
+        }
+    } catch (err) {
+        console.error('Failed to load crop analytics:', err);
+    }
+}
+
+function renderBuyerCropAnalytics(analytics) {
+    if (!analytics) {
+        resetBuyerCropAnalyticsDisplay();
+        return;
+    }
+
+    const avgEl = document.getElementById('buyer-ph-avg-price');
+    const minMaxEl = document.getElementById('buyer-ph-min-max');
+    const latestEl = document.getElementById('buyer-ph-latest-price');
+    const volumeEl = document.getElementById('buyer-ph-volume');
+    const trendEl = document.getElementById('buyer-ph-trend-badge');
+
+    if (avgEl) avgEl.textContent = analytics.averagePrice != null ? `₹${Number(analytics.averagePrice).toFixed(2)}` : '--';
+    if (minMaxEl) {
+        const min = analytics.minimumPrice != null ? `₹${Number(analytics.minimumPrice).toFixed(2)}` : '--';
+        const max = analytics.maximumPrice != null ? `₹${Number(analytics.maximumPrice).toFixed(2)}` : '--';
+        minMaxEl.textContent = `${min} - ${max}`;
+    }
+    if (latestEl) latestEl.textContent = analytics.latestPrice != null ? `₹${Number(analytics.latestPrice).toFixed(2)}` : '--';
+    if (volumeEl) volumeEl.textContent = analytics.totalQuantity != null ? `${Number(analytics.totalQuantity).toFixed(2)} kg` : '0 kg';
+
+    if (trendEl) {
+        const trend = analytics.recentTrend || 'INSUFFICIENT_DATA';
+        let trendHtml;
+        if (trend === 'UPWARD') {
+            trendHtml = '<span class="trend-badge trend-upward">📈 UPWARD</span>';
+        } else if (trend === 'DOWNWARD') {
+            trendHtml = '<span class="trend-badge trend-downward">📉 DOWNWARD</span>';
+        } else if (trend === 'STABLE') {
+            trendHtml = '<span class="trend-badge trend-stable">⚖️ STABLE</span>';
+        } else {
+            trendHtml = '<span class="trend-badge trend-insufficient">ℹ️ INSUFFICIENT DATA</span>';
+        }
+        trendEl.innerHTML = trendHtml;
+    }
+}
+
+function resetBuyerCropAnalyticsDisplay() {
+    const avgEl = document.getElementById('buyer-ph-avg-price');
+    const minMaxEl = document.getElementById('buyer-ph-min-max');
+    const latestEl = document.getElementById('buyer-ph-latest-price');
+    const volumeEl = document.getElementById('buyer-ph-volume');
+    const trendEl = document.getElementById('buyer-ph-trend-badge');
+
+    if (avgEl) avgEl.textContent = '--';
+    if (minMaxEl) minMaxEl.textContent = '--';
+    if (latestEl) latestEl.textContent = '--';
+    if (volumeEl) volumeEl.textContent = '--';
+    if (trendEl) trendEl.innerHTML = '<span class="trend-badge trend-insufficient">Select Crop</span>';
+}
+
+function renderBuyerPriceHistoryTable() {
+    const tbody = document.getElementById('buyer-price-history-tbody');
+    if (!tbody) return;
+
+    if (buyerPriceHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">No historical pricing data available.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = buyerPriceHistory.map(ph => {
+        const effective = ph.effectivePrice != null ? Number(ph.effectivePrice).toFixed(2) : (ph.modalPricePerKg != null ? Number(ph.modalPricePerKg).toFixed(2) : '--');
+        const qty = ph.quantity != null ? `${Number(ph.quantity).toFixed(2)} kg` : '--';
+        const total = ph.totalAmount != null ? `₹${Number(ph.totalAmount).toFixed(2)}` : '--';
+        const isSale = ph.sourceType === 'TRANSACTION_SALE';
+        const sourceBadge = isSale
+            ? '<span class="source-badge source-badge-sale">Sale Contract</span>'
+            : '<span class="source-badge source-badge-mandi">Mandi Benchmark</span>';
+
+        return `
+            <tr>
+                <td><strong>#${ph.priceId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(ph.cropName || 'Crop')}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(ph.cropCategory || '')}</div>
+                </td>
+                <td>${sourceBadge}</td>
+                <td>${ph.orderId ? `<span class="txn-badge">#${ph.orderId}</span>` : '<span class="text-muted">--</span>'}</td>
+                <td><strong style="color: #15803d;">₹${effective}</strong></td>
+                <td>${qty}</td>
+                <td>${total}</td>
+                <td>${escapeHtml(ph.marketLocation || 'Market Direct')}</td>
+                <td>${escapeHtml(ph.recordedDate || '')}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Admin Price History & Macro Analytics ---
+
+async function loadAdminPriceHistory() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (allCrops.length > 0) {
+        populateCropFilterDropdown('admin-ph-crop-filter', allCrops);
+    }
+
+    const cropId = document.getElementById('admin-ph-crop-filter')?.value;
+    const sourceType = document.getElementById('admin-ph-source-filter')?.value;
+    const startDate = document.getElementById('admin-ph-start-date')?.value;
+    const endDate = document.getElementById('admin-ph-end-date')?.value;
+
+    // 1. Fetch marketplace macro summary
+    const summaryParams = new URLSearchParams();
+    if (startDate) summaryParams.append('startDate', startDate);
+    if (endDate) summaryParams.append('endDate', endDate);
+    const summaryUrl = summaryParams.toString()
+        ? `${ADMIN_PRICE_HISTORY_ENDPOINT}/summary?${summaryParams.toString()}`
+        : `${ADMIN_PRICE_HISTORY_ENDPOINT}/summary`;
+
+    try {
+        const summaryRes = await fetch(summaryUrl, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (summaryRes.ok) {
+            const summaryResult = await summaryRes.json();
+            marketplacePriceSummary = summaryResult.data;
+            renderAdminMarketplaceSummary(marketplacePriceSummary);
+        }
+    } catch (err) {
+        console.error('Failed to load marketplace summary:', err);
+    }
+
+    // 2. Fetch full price history
+    const params = new URLSearchParams();
+    if (cropId) params.append('cropId', cropId);
+    if (sourceType) params.append('sourceType', sourceType);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const url = params.toString() ? `${ADMIN_PRICE_HISTORY_ENDPOINT}?${params.toString()}` : ADMIN_PRICE_HISTORY_ENDPOINT;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            adminPriceHistory = result.data || [];
+            renderAdminPriceHistoryTable();
+        }
+    } catch (err) {
+        console.error('Failed to load admin price history:', err);
+    }
+}
+
+function renderAdminMarketplaceSummary(summary) {
+    if (!summary) return;
+    const txnsEl = document.getElementById('admin-ph-total-txns');
+    const volumeEl = document.getElementById('admin-ph-total-volume');
+    const avgEl = document.getElementById('admin-ph-avg-price');
+    const highEl = document.getElementById('admin-ph-highest-crop');
+    const lowEl = document.getElementById('admin-ph-lowest-crop');
+
+    if (txnsEl) txnsEl.textContent = summary.overallTransactionCount || 0;
+    if (volumeEl) volumeEl.textContent = summary.overallTotalQuantity != null ? Number(summary.overallTotalQuantity).toFixed(2) : '0.00';
+    if (avgEl) avgEl.textContent = summary.overallAveragePrice != null ? `₹${Number(summary.overallAveragePrice).toFixed(2)}` : '₹0.00';
+    if (highEl) {
+        const val = summary.highestCropAveragePrice != null ? ` (₹${Number(summary.highestCropAveragePrice).toFixed(2)})` : '';
+        highEl.textContent = `${summary.highestPricedCrop || '-'}${val}`;
+    }
+    if (lowEl) {
+        const val = summary.lowestCropAveragePrice != null ? ` (₹${Number(summary.lowestCropAveragePrice).toFixed(2)})` : '';
+        lowEl.textContent = `${summary.lowestPricedCrop || '-'}${val}`;
+    }
+}
+
+function renderAdminPriceHistoryTable() {
+    const tbody = document.getElementById('admin-price-history-tbody');
+    if (!tbody) return;
+
+    if (adminPriceHistory.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="11" class="text-center py-4 text-muted">No historical price entries found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = adminPriceHistory.map(ph => {
+        const effective = ph.effectivePrice != null ? Number(ph.effectivePrice).toFixed(2) : (ph.modalPricePerKg != null ? Number(ph.modalPricePerKg).toFixed(2) : '--');
+        const qty = ph.quantity != null ? `${Number(ph.quantity).toFixed(2)}` : '--';
+        const total = ph.totalAmount != null ? `₹${Number(ph.totalAmount).toFixed(2)}` : '--';
+        const isSale = ph.sourceType === 'TRANSACTION_SALE';
+        const sourceBadge = isSale
+            ? '<span class="source-badge source-badge-sale">Commercial Sale</span>'
+            : '<span class="source-badge source-badge-mandi">Mandi Benchmark</span>';
+
+        return `
+            <tr>
+                <td><strong>#${ph.priceId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">${escapeHtml(ph.cropName || 'Crop')}</div>
+                    <div style="font-size: 0.75rem; color: #64748b;">${escapeHtml(ph.cropCategory || '')}</div>
+                </td>
+                <td>${sourceBadge}</td>
+                <td>${ph.orderId ? `<span class="txn-badge">#${ph.orderId}</span>` : '<span class="text-muted">--</span>'}</td>
+                <td>${ph.farmerName ? escapeHtml(ph.farmerName) : '<span class="text-muted">--</span>'}</td>
+                <td>${ph.buyerName ? escapeHtml(ph.buyerName) : '<span class="text-muted">--</span>'}</td>
+                <td><strong style="color: #15803d;">₹${effective}</strong></td>
+                <td>${qty}</td>
+                <td><strong>${total}</strong></td>
+                <td>${escapeHtml(ph.marketLocation || 'Market Direct')}</td>
+                <td>${escapeHtml(ph.recordedDate || '')}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// ===================================================================
 // Phase 10: Payment Processing, Tracking & Settlement Logic
 // ===================================================================
 
@@ -4925,4 +5353,98 @@ document.addEventListener('DOMContentLoaded', () => {
             renderAdminPaymentsTable();
         });
     });
+
+    // 19. Phase 11: Price History & Analytics Event Listeners
+    const refreshFarmerPhBtn = document.getElementById('refresh-farmer-price-history-btn');
+    if (refreshFarmerPhBtn) {
+        refreshFarmerPhBtn.addEventListener('click', async () => {
+            await loadFarmerPriceHistory();
+            showFarmerPriceHistoryAlert('Farmer sales price history refreshed.', 'success');
+        });
+    }
+
+    const farmerPhFilterBtn = document.getElementById('farmer-ph-filter-btn');
+    if (farmerPhFilterBtn) {
+        farmerPhFilterBtn.addEventListener('click', async () => {
+            await loadFarmerPriceHistory();
+        });
+    }
+
+    const farmerPhResetBtn = document.getElementById('farmer-ph-reset-btn');
+    if (farmerPhResetBtn) {
+        farmerPhResetBtn.addEventListener('click', async () => {
+            const cropFilter = document.getElementById('farmer-ph-crop-filter');
+            const startDate = document.getElementById('farmer-ph-start-date');
+            const endDate = document.getElementById('farmer-ph-end-date');
+            if (cropFilter) cropFilter.value = '';
+            if (startDate) startDate.value = '';
+            if (endDate) endDate.value = '';
+            await loadFarmerPriceHistory();
+        });
+    }
+
+    const refreshBuyerPhBtn = document.getElementById('refresh-buyer-price-history-btn');
+    if (refreshBuyerPhBtn) {
+        refreshBuyerPhBtn.addEventListener('click', async () => {
+            await loadBuyerPriceHistory();
+            showBuyerPriceHistoryAlert('Market price intelligence refreshed.', 'success');
+        });
+    }
+
+    const buyerPhCropSelect = document.getElementById('buyer-ph-crop-select');
+    if (buyerPhCropSelect) {
+        buyerPhCropSelect.addEventListener('change', async () => {
+            await loadBuyerPriceHistory();
+        });
+    }
+
+    const buyerPhFilterBtn = document.getElementById('buyer-ph-filter-btn');
+    if (buyerPhFilterBtn) {
+        buyerPhFilterBtn.addEventListener('click', async () => {
+            await loadBuyerPriceHistory();
+        });
+    }
+
+    const buyerPhResetBtn = document.getElementById('buyer-ph-reset-btn');
+    if (buyerPhResetBtn) {
+        buyerPhResetBtn.addEventListener('click', async () => {
+            const cropSelect = document.getElementById('buyer-ph-crop-select');
+            const startDate = document.getElementById('buyer-ph-start-date');
+            const endDate = document.getElementById('buyer-ph-end-date');
+            if (cropSelect) cropSelect.value = '';
+            if (startDate) startDate.value = '';
+            if (endDate) endDate.value = '';
+            await loadBuyerPriceHistory();
+        });
+    }
+
+    const refreshAdminPhBtn = document.getElementById('refresh-admin-price-history-btn');
+    if (refreshAdminPhBtn) {
+        refreshAdminPhBtn.addEventListener('click', async () => {
+            await loadAdminPriceHistory();
+            showAdminPriceHistoryAlert('Marketplace price history & summary refreshed.', 'success');
+        });
+    }
+
+    const adminPhFilterBtn = document.getElementById('admin-ph-filter-btn');
+    if (adminPhFilterBtn) {
+        adminPhFilterBtn.addEventListener('click', async () => {
+            await loadAdminPriceHistory();
+        });
+    }
+
+    const adminPhResetBtn = document.getElementById('admin-ph-reset-btn');
+    if (adminPhResetBtn) {
+        adminPhResetBtn.addEventListener('click', async () => {
+            const cropFilter = document.getElementById('admin-ph-crop-filter');
+            const sourceFilter = document.getElementById('admin-ph-source-filter');
+            const startDate = document.getElementById('admin-ph-start-date');
+            const endDate = document.getElementById('admin-ph-end-date');
+            if (cropFilter) cropFilter.value = '';
+            if (sourceFilter) sourceFilter.value = '';
+            if (startDate) startDate.value = '';
+            if (endDate) endDate.value = '';
+            await loadAdminPriceHistory();
+        });
+    }
 });

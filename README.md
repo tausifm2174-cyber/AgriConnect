@@ -323,7 +323,7 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 8 — Order Management** *(Completed)*
 - [x] **Phase 9 — Delivery Management** *(Completed)*
 - [x] **Phase 10 — Payment Management** *(Completed)*
-- [ ] **Phase 11 — Price History**
+- [x] **Phase 11 — Price History & Analytics** *(Completed)*
 - [ ] **Phase 12 — Admin Dashboard**
 - [ ] **Phase 13 — DBMS Queries & Reports**
 - [ ] **Phase 14 — Security & Validation**

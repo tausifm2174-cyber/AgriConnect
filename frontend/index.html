@@ -21,7 +21,7 @@
                 </div>
             </div>
             <div class="header-actions">
-                <div class="phase-badge">Phase 10: Payment Management</div>
+                <div class="phase-badge">Phase 11: Price History &amp; Analytics</div>
             </div>
         </div>
     </header>
@@ -538,6 +538,68 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 11: Farmer Price History & Realized Pricing Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📈 Historical Produce Sales &amp; Pricing</h3>
+                            <p class="card-subtitle">Analyze historical sales realizations, contracted prices per kg, volume sold, and commercial revenue trends.</p>
+                        </div>
+                        <button id="refresh-farmer-price-history-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh History
+                        </button>
+                    </div>
+
+                    <div id="farmer-price-history-alert" class="auth-alert hidden"></div>
+
+                    <!-- Price history filter row -->
+                    <div class="filter-controls-row" style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0; min-width: 180px;">
+                            <label for="farmer-ph-crop-filter" style="font-size: 0.8rem;">Filter by Crop</label>
+                            <select id="farmer-ph-crop-filter" class="form-input">
+                                <option value="">All Crops</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="farmer-ph-start-date" style="font-size: 0.8rem;">Start Date</label>
+                            <input type="date" id="farmer-ph-start-date" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="farmer-ph-end-date" style="font-size: 0.8rem;">End Date</label>
+                            <input type="date" id="farmer-ph-end-date" class="form-input">
+                        </div>
+                        <button type="button" id="farmer-ph-filter-btn" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                            Apply Filter
+                        </button>
+                        <button type="button" id="farmer-ph-reset-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                            Reset
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="farmer-price-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Price ID</th>
+                                    <th>Order #</th>
+                                    <th>Crop</th>
+                                    <th>Realized Price (₹/kg)</th>
+                                    <th>Volume Sold (kg)</th>
+                                    <th>Total Realized (₹)</th>
+                                    <th>Market / Farm Location</th>
+                                    <th>Date</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody id="farmer-price-history-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No sales price records found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Edit Harvest Modal -->
@@ -860,6 +922,102 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 11: Global Marketplace Price History & Platform Analytics Card (Admin) -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📊 Marketplace Price History &amp; Platform Analytics</h3>
+                            <p class="card-subtitle">Platform-wide historical pricing intelligence, mandi benchmarks, transaction analytics, and multi-crop aggregation.</p>
+                        </div>
+                        <button id="refresh-admin-price-history-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Analytics
+                        </button>
+                    </div>
+
+                    <div id="admin-price-history-alert" class="auth-alert hidden"></div>
+
+                    <!-- Macro Summary KPI Cards -->
+                    <div class="price-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Total Transactions</div>
+                            <div id="admin-ph-total-txns" style="font-size: 1.5rem; font-weight: 700; color: #0f172a; margin-top: 0.25rem;">0</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Traded Volume (kg)</div>
+                            <div id="admin-ph-total-volume" style="font-size: 1.5rem; font-weight: 700; color: #0284c7; margin-top: 0.25rem;">0.00</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Market Avg Price</div>
+                            <div id="admin-ph-avg-price" style="font-size: 1.5rem; font-weight: 700; color: #16a34a; margin-top: 0.25rem;">₹0.00</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Highest Priced Crop</div>
+                            <div id="admin-ph-highest-crop" style="font-size: 1.25rem; font-weight: 700; color: #d97706; margin-top: 0.25rem;">-</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Lowest Priced Crop</div>
+                            <div id="admin-ph-lowest-crop" style="font-size: 1.25rem; font-weight: 700; color: #6366f1; margin-top: 0.25rem;">-</div>
+                        </div>
+                    </div>
+
+                    <!-- Filter row -->
+                    <div class="filter-controls-row" style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0; min-width: 160px;">
+                            <label for="admin-ph-crop-filter" style="font-size: 0.8rem;">Filter by Crop</label>
+                            <select id="admin-ph-crop-filter" class="form-input">
+                                <option value="">All Crops</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0; min-width: 160px;">
+                            <label for="admin-ph-source-filter" style="font-size: 0.8rem;">Source Type</label>
+                            <select id="admin-ph-source-filter" class="form-input">
+                                <option value="">All Sources</option>
+                                <option value="TRANSACTION_SALE">Commercial Sale</option>
+                                <option value="MARKET_MANDI">Mandi Benchmark</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="admin-ph-start-date" style="font-size: 0.8rem;">Start Date</label>
+                            <input type="date" id="admin-ph-start-date" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="admin-ph-end-date" style="font-size: 0.8rem;">End Date</label>
+                            <input type="date" id="admin-ph-end-date" class="form-input">
+                        </div>
+                        <button type="button" id="admin-ph-filter-btn" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                            Apply Filter
+                        </button>
+                        <button type="button" id="admin-ph-reset-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                            Reset
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="admin-price-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Price ID</th>
+                                    <th>Crop</th>
+                                    <th>Source</th>
+                                    <th>Order #</th>
+                                    <th>Farmer</th>
+                                    <th>Buyer</th>
+                                    <th>Effective Price (₹/kg)</th>
+                                    <th>Volume (kg)</th>
+                                    <th>Total (₹)</th>
+                                    <th>Market / Farm Location</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-price-history-tbody">
+                                <tr>
+                                    <td colspan="11" class="text-center py-4 text-muted">No historical price entries found.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Phase 6: Commercial Buyer Requirements Dashboard (Shown exclusively for BUYER role) -->
@@ -1156,6 +1314,92 @@
                             <tbody id="buyer-payments-tbody">
                                 <tr>
                                     <td colspan="9" class="text-center py-4 text-muted">No payments recorded yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 11: Buyer Crop Market Intelligence & Price History Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>📈 Crop Market Intelligence &amp; Price History</h3>
+                            <p class="card-subtitle">Explore historical market trends, mandi benchmark rates, commercial sale prices, and statistical analytics.</p>
+                        </div>
+                        <button id="refresh-buyer-price-history-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Intelligence
+                        </button>
+                    </div>
+
+                    <div id="buyer-price-history-alert" class="auth-alert hidden"></div>
+
+                    <!-- Filter Controls -->
+                    <div class="filter-controls-row" style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1.25rem; align-items: flex-end;">
+                        <div class="form-group" style="margin-bottom: 0; min-width: 180px;">
+                            <label for="buyer-ph-crop-select" style="font-size: 0.8rem;">Select Crop for Intelligence</label>
+                            <select id="buyer-ph-crop-select" class="form-input">
+                                <option value="">-- All Crops Overview --</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="buyer-ph-start-date" style="font-size: 0.8rem;">Start Date</label>
+                            <input type="date" id="buyer-ph-start-date" class="form-input">
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label for="buyer-ph-end-date" style="font-size: 0.8rem;">End Date</label>
+                            <input type="date" id="buyer-ph-end-date" class="form-input">
+                        </div>
+                        <button type="button" id="buyer-ph-filter-btn" class="btn btn-primary" style="padding: 0.5rem 1rem;">
+                            Apply Filter
+                        </button>
+                        <button type="button" id="buyer-ph-reset-btn" class="btn btn-secondary" style="padding: 0.5rem 1rem;">
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Crop Analytics KPI Metrics Box (Shown when a crop is selected) -->
+                    <div id="buyer-crop-analytics-box" class="price-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Average Price</div>
+                            <div id="buyer-ph-avg-price" style="font-size: 1.35rem; font-weight: 700; color: #16a34a; margin-top: 0.25rem;">--</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Price Range (Min - Max)</div>
+                            <div id="buyer-ph-min-max" style="font-size: 1.2rem; font-weight: 700; color: #0f172a; margin-top: 0.25rem;">--</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Latest Traded Price</div>
+                            <div id="buyer-ph-latest-price" style="font-size: 1.35rem; font-weight: 700; color: #0284c7; margin-top: 0.25rem;">--</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Traded Volume (kg)</div>
+                            <div id="buyer-ph-volume" style="font-size: 1.35rem; font-weight: 700; color: #6366f1; margin-top: 0.25rem;">--</div>
+                        </div>
+                        <div class="price-kpi-card" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: var(--radius-md); padding: 1rem;">
+                            <div style="font-size: 0.75rem; text-transform: uppercase; color: #64748b; font-weight: 600;">Recent Trend</div>
+                            <div id="buyer-ph-trend-badge" style="margin-top: 0.4rem;"><span class="trend-badge trend-insufficient">--</span></div>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="buyer-price-history-table">
+                            <thead>
+                                <tr>
+                                    <th>Price ID</th>
+                                    <th>Crop</th>
+                                    <th>Source</th>
+                                    <th>Order #</th>
+                                    <th>Effective Price (₹/kg)</th>
+                                    <th>Volume (kg)</th>
+                                    <th>Total (₹)</th>
+                                    <th>Market / Farm Location</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-price-history-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No historical pricing data available.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -2169,7 +2413,7 @@
     </main>
 
     <footer class="app-footer">
-        <p>AgriConnect &copy; 2026 — College DBMS Project &bull; Phase 10: Payment Management</p>
+        <p>AgriConnect &copy; 2026 — College DBMS Project &bull; Phase 11: Price History &amp; Analytics</p>
     </footer>
 
     <script src="js/app.js"></script>

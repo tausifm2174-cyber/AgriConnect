@@ -808,3 +808,83 @@ This section outlines the implementation, testing, API specifications, and front
 - **PaymentDatabaseMigrationTest**: 1 integration test verifying idempotent schema application against MySQL.
 - **PaymentIntegrationTest**: 6 end-to-end integration tests verifying database persistence, multi-stage settlement, overpayment rejection, and RBAC isolation.
 - **Full Test Suite**: 269 tests executed across Phases 1–10, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).
+
+---
+
+# AgriConnect — Phase 11: Price History & Analytics Walkthrough
+
+This section outlines the implementation, testing, database schema extension, DBMS analytical queries, API specifications, and frontend integration of **Phase 11: Price History & Analytics**.
+
+---
+
+## 1. Summary of Accomplishments
+
+- **Relational Schema Migration (`09_phase11_price_history.sql`)**:
+  - Unified dual-source pricing model:
+    - `MARKET_MANDI`: APMC mandi benchmarks (seeded benchmark records preserved).
+    - `TRANSACTION_SALE`: Actual completed commercial marketplace sales transactions.
+  - Extended `price_history` table:
+    - `source_type ENUM('MARKET_MANDI', 'TRANSACTION_SALE') DEFAULT 'TRANSACTION_SALE'`
+    - `order_id INT NULL` (with FK `fk_price_history_order` to `orders(order_id)`)
+    - `farmer_id INT NULL` (with FK `fk_price_history_farmer` to `users(user_id)`)
+    - `buyer_id INT NULL` (with FK `fk_price_history_buyer` to `users(user_id)`)
+    - `quantity DECIMAL(10,2) NULL`
+    - `unit_price DECIMAL(8,2) NULL`
+    - `total_amount DECIMAL(12,2) NULL`
+  - Constraints & Indexes:
+    - Unique constraint `idx_price_history_order_unique` on `order_id` to guarantee database-level idempotency and prevent duplicate sale recording.
+    - Composite index `idx_price_history_crop_price` on `(crop_id, unit_price)` for fast filtering and range scans.
+    - Single-column indexes `idx_price_history_farmer` and `idx_price_history_buyer` for rapid role-specific tenant lookups.
+- **Automated Settlement Lifecycle Hook**:
+  - Connected `PaymentService` to `PriceHistoryService`.
+  - When payment successfully settles (`PaymentStatus.isSuccessful()`), the system automatically and idempotently captures the agreed transaction pricing into `price_history`.
+  - Safeguarded against cancelled or rejected orders.
+- **Academic DBMS Aggregation & Trend Analytics**:
+  - Implemented optimized JPA/JPQL aggregation queries:
+    - Average price (`AVG(COALESCE(unitPrice, modalPricePerKg))`)
+    - Minimum price (`MIN(COALESCE(unitPrice, minPricePerKg))`)
+    - Maximum price (`MAX(COALESCE(unitPrice, maxPricePerKg))`)
+    - Total trading volume (`COALESCE(SUM(quantity), 0)`)
+    - Total contract volume and count (`COUNT(ph)`)
+  - Statistical time-series trend classification (`UPWARD`, `DOWNWARD`, `STABLE`, `INSUFFICIENT_DATA`).
+  - Platform-wide macro summary with automatic identification of highest and lowest priced commodities.
+- **RBAC Security & Role-Specific Access**:
+  - **Farmers**: Can inspect historical sales realizations, contracted prices, volumes sold, and buyers.
+  - **Buyers**: Can evaluate crop price trends, APMC benchmark rates, and statistical metrics for commercial intelligence.
+  - **Administrators**: Can audit global price history across all sources, filter by commercial vs mandi benchmark, and review macroscopic market summaries.
+  - **Universal**: Authenticated cross-role endpoints for common crop analytics and summaries.
+- **Frontend Dashboard Integration**:
+  - Farmer dashboard: Added "Historical Produce Sales & Pricing" card with crop and date filtering.
+  - Buyer dashboard: Added "Crop Market Intelligence & Price History" with interactive crop selector, 5 KPI analytical tiles (Average, Range, Latest, Volume, Trend), and price history table.
+  - Admin dashboard: Added "Marketplace Price History & Platform Analytics" with 5 platform macro KPI tiles, source type filtering, and global history table.
+  - Validated syntax with `node -c frontend/js/app.js`.
+
+---
+
+## 2. API Endpoints
+
+### Farmer Endpoints (`ROLE_FARMER`)
+- `GET /api/farmer/price-history`: Retrieve historical sales records for the authenticated farmer with optional `cropId`, `startDate`, and `endDate` parameters.
+
+### Buyer Endpoints (`ROLE_BUYER`)
+- `GET /api/buyer/price-history`: Retrieve market price history with optional `cropId`, `startDate`, and `endDate` filters.
+- `GET /api/buyer/price-history/analytics/{cropId}`: Retrieve aggregated statistics (AVG, MIN, MAX, Volume, Trend) for a crop.
+
+### Admin Endpoints (`ROLE_ADMIN`)
+- `GET /api/admin/price-history`: Retrieve all pricing entries with `cropId`, `sourceType`, `startDate`, and `endDate` filters.
+- `GET /api/admin/price-history/summary`: Retrieve platform-wide macro summary and per-crop performance metrics.
+
+### Universal Authenticated Endpoints (`ROLE_FARMER`, `ROLE_BUYER`, `ROLE_ADMIN`)
+- `GET /api/price-history/crop/{cropId}`: Retrieve price history for a given crop.
+- `GET /api/price-history/analytics/{cropId}`: Retrieve DBMS analytics for a given crop.
+- `GET /api/price-history/summary`: Retrieve marketplace pricing summary.
+
+---
+
+## 3. Test Coverage & Verification Results
+
+- **PriceHistoryServiceTest**: 9 unit tests verifying idempotent creation, cancelled order rejection, role-specific queries, crop analytics calculation, and marketplace aggregation.
+- **PriceHistoryControllerTest**: 5 MockMvc WebMvc tests verifying HTTP 200 responses, JSON envelopes, and controller route mappings.
+- **PriceHistoryDatabaseMigrationTest**: 1 integration test verifying column existence, data types, indexes, and FK constraints against MySQL.
+- **PriceHistoryIntegrationTest**: 2 end-to-end integration tests verifying payment completion -> price history creation, duplicate prevention, and RBAC security enforcement.
+- **Full Test Suite**: 286 tests executed across Phases 1–11, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).

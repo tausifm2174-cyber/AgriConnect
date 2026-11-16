@@ -41,15 +41,18 @@ public class PaymentService {
     private final OrderRepository orderRepository;
     private final BuyerProfileRepository buyerProfileRepository;
     private final FarmerProfileRepository farmerProfileRepository;
+    private final PriceHistoryService priceHistoryService;
 
     public PaymentService(PaymentRepository paymentRepository,
                           OrderRepository orderRepository,
                           BuyerProfileRepository buyerProfileRepository,
-                          FarmerProfileRepository farmerProfileRepository) {
+                          FarmerProfileRepository farmerProfileRepository,
+                          PriceHistoryService priceHistoryService) {
         this.paymentRepository = paymentRepository;
         this.orderRepository = orderRepository;
         this.buyerProfileRepository = buyerProfileRepository;
         this.farmerProfileRepository = farmerProfileRepository;
+        this.priceHistoryService = priceHistoryService;
     }
 
     /**
@@ -144,6 +147,11 @@ public class PaymentService {
             order.setOrderStatus(OrderStatus.CONFIRMED);
             orderRepository.save(order);
             log.info("Order #{} transitioned from ACCEPTED to CONFIRMED upon successful payment.", order.getOrderId());
+        }
+
+        // 9. Record price history for analytical reporting (Phase 11)
+        if (initialStatus.isSuccessful()) {
+            priceHistoryService.recordPriceForCompletedOrder(order);
         }
 
         return enrichPaymentResponse(saved);
@@ -293,6 +301,11 @@ public class PaymentService {
             order.setOrderStatus(OrderStatus.CONFIRMED);
             orderRepository.save(order);
             log.info("Order #{} transitioned to CONFIRMED following settlement of Payment #{}", order.getOrderId(), paymentId);
+        }
+
+        // Record price history for analytical reporting (Phase 11)
+        if (targetStatus.isSuccessful()) {
+            priceHistoryService.recordPriceForCompletedOrder(order);
         }
 
         return enrichPaymentResponse(saved);

@@ -45,6 +45,9 @@ class PaymentServiceTest {
     @Mock
     private FarmerProfileRepository farmerProfileRepository;
 
+    @Mock
+    private com.agriconnect.service.PriceHistoryService priceHistoryService;
+
     @InjectMocks
     private PaymentService paymentService;
 
