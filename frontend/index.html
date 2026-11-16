@@ -21,7 +21,7 @@
                 </div>
             </div>
             <div class="header-actions">
-                <div class="phase-badge">Phase 8: Order Management</div>
+                <div class="phase-badge">Phase 10: Payment Management</div>
             </div>
         </div>
     </header>
@@ -447,6 +447,97 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 9: Farmer Outgoing Deliveries & Shipments Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>🚚 Outgoing Deliveries &amp; Logistics</h3>
+                            <p class="card-subtitle">Manage fulfillment, dispatch shipments, track vehicle and tracking details, and mark lots delivered.</p>
+                        </div>
+                        <button id="refresh-farmer-deliveries-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Deliveries
+                        </button>
+                    </div>
+
+                    <div id="farmer-deliveries-alert" class="auth-alert hidden"></div>
+
+                    <!-- Delivery filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab farmer-delivery-filter-tab active" data-filter="ALL">All Deliveries (<span id="farmer-delivery-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-delivery-filter-tab" data-filter="PENDING">Pending Dispatch (<span id="farmer-delivery-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-delivery-filter-tab" data-filter="SHIPPED">In Transit / Shipped (<span id="farmer-delivery-count-shipped">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-delivery-filter-tab" data-filter="DELIVERED">Delivered (<span id="farmer-delivery-count-delivered">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="farmer-deliveries-table">
+                            <thead>
+                                <tr>
+                                    <th>Delivery ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Buyer Details</th>
+                                    <th>Delivery Address</th>
+                                    <th>Tracking &amp; Vehicle</th>
+                                    <th>Dates (Dispatched/Delivered)</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="farmer-deliveries-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">No deliveries created yet. Deliveries appear once an order is accepted and scheduled.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 10: Farmer Received Payments & Settlement Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>💳 Received Payments &amp; Settlement</h3>
+                            <p class="card-subtitle">Track incoming settlements, buyer payments, transaction references, and payment completion status for your crops.</p>
+                        </div>
+                        <button id="refresh-farmer-payments-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Payments
+                        </button>
+                    </div>
+
+                    <div id="farmer-payments-alert" class="auth-alert hidden"></div>
+
+                    <!-- Payment filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab farmer-payment-filter-tab active" data-filter="ALL">All Payments (<span id="farmer-payment-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-payment-filter-tab" data-filter="COMPLETED">Completed (<span id="farmer-payment-count-completed">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-payment-filter-tab" data-filter="PENDING">Pending (<span id="farmer-payment-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab farmer-payment-filter-tab" data-filter="REFUNDED">Refunded (<span id="farmer-payment-count-refunded">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="farmer-payments-table">
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Buyer Details</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Method</th>
+                                    <th>Transaction Ref</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="farmer-payments-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No payment records received yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Edit Harvest Modal -->
@@ -677,6 +768,98 @@
                         </table>
                     </div>
                 </div>
+
+                <!-- Phase 9: Global Delivery & Logistics Monitoring Card (Admin) -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>🚚 Global Delivery &amp; Logistics Monitoring</h3>
+                            <p class="card-subtitle">Comprehensive administrative oversight of logistics carriers, tracking codes, vehicle routes, and order fulfillment states.</p>
+                        </div>
+                        <button id="refresh-admin-deliveries-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Deliveries
+                        </button>
+                    </div>
+
+                    <div id="admin-deliveries-alert" class="auth-alert hidden"></div>
+
+                    <!-- Delivery filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab admin-delivery-filter-tab active" data-filter="ALL">All Shipments (<span id="admin-delivery-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab admin-delivery-filter-tab" data-filter="PENDING">Pending (<span id="admin-delivery-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab admin-delivery-filter-tab" data-filter="SHIPPED">Shipped (<span id="admin-delivery-count-shipped">0</span>)</button>
+                        <button type="button" class="filter-tab admin-delivery-filter-tab" data-filter="DELIVERED">Delivered (<span id="admin-delivery-count-delivered">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="admin-deliveries-table">
+                            <thead>
+                                <tr>
+                                    <th>Delivery ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Buyer</th>
+                                    <th>Farmer</th>
+                                    <th>Delivery Address</th>
+                                    <th>Tracking &amp; Vehicle</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-deliveries-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">No deliveries recorded in the system.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 10: Global Payment Audit & Reconciliation Card (Admin) -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>💳 Global Payment Audit &amp; Reconciliation</h3>
+                            <p class="card-subtitle">Comprehensive financial audit of transactions, payment methods, transaction references, refunds, and escrow settlements.</p>
+                        </div>
+                        <button id="refresh-admin-payments-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Payments
+                        </button>
+                    </div>
+
+                    <div id="admin-payments-alert" class="auth-alert hidden"></div>
+
+                    <!-- Payment filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab admin-payment-filter-tab active" data-filter="ALL">All Payments (<span id="admin-payment-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab admin-payment-filter-tab" data-filter="COMPLETED">Completed (<span id="admin-payment-count-completed">0</span>)</button>
+                        <button type="button" class="filter-tab admin-payment-filter-tab" data-filter="PENDING">Pending (<span id="admin-payment-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab admin-payment-filter-tab" data-filter="REFUNDED">Refunded (<span id="admin-payment-count-refunded">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="admin-payments-table">
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Buyer</th>
+                                    <th>Farmer</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Method</th>
+                                    <th>Transaction Ref</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-payments-tbody">
+                                <tr>
+                                    <td colspan="10" class="text-center py-4 text-muted">No payments recorded in the system.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </section>
 
             <!-- Phase 6: Commercial Buyer Requirements Dashboard (Shown exclusively for BUYER role) -->
@@ -882,6 +1065,97 @@
                             <tbody id="buyer-orders-tbody">
                                 <tr>
                                     <td colspan="9" class="text-center py-4 text-muted">No purchase orders placed yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 9: Buyer Inbound Deliveries & Tracking Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>🚚 Inbound Deliveries &amp; Tracking</h3>
+                            <p class="card-subtitle">Live tracking of active shipments, carrier notes, delivery addresses, and final receipt confirmations.</p>
+                        </div>
+                        <button id="refresh-buyer-deliveries-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Deliveries
+                        </button>
+                    </div>
+
+                    <div id="buyer-deliveries-alert" class="auth-alert hidden"></div>
+
+                    <!-- Delivery filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab buyer-delivery-filter-tab active" data-filter="ALL">All Deliveries (<span id="buyer-delivery-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-delivery-filter-tab" data-filter="PENDING">Pending Dispatch (<span id="buyer-delivery-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-delivery-filter-tab" data-filter="SHIPPED">In Transit / Shipped (<span id="buyer-delivery-count-shipped">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-delivery-filter-tab" data-filter="DELIVERED">Delivered (<span id="buyer-delivery-count-delivered">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="buyer-deliveries-table">
+                            <thead>
+                                <tr>
+                                    <th>Delivery ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Farmer</th>
+                                    <th>Delivery Address</th>
+                                    <th>Tracking &amp; Vehicle</th>
+                                    <th>Dates (Shipped/Delivered)</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-deliveries-tbody">
+                                <tr>
+                                    <td colspan="8" class="text-center py-4 text-muted">No deliveries created yet.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phase 10: Buyer Payments & Financial Settlement Card -->
+                <div class="card my-harvests-card" style="margin-top: 1.5rem;">
+                    <div class="card-header">
+                        <div>
+                            <h3>💳 Payment History &amp; Settlements</h3>
+                            <p class="card-subtitle">Manage payment records, view transaction references, verify payment completion, and check order balances.</p>
+                        </div>
+                        <button id="refresh-buyer-payments-btn" class="btn btn-secondary" type="button">
+                            ↻ Refresh Payments
+                        </button>
+                    </div>
+
+                    <div id="buyer-payments-alert" class="auth-alert hidden"></div>
+
+                    <!-- Payment filter tabs -->
+                    <div class="harvest-filter-tabs">
+                        <button type="button" class="filter-tab buyer-payment-filter-tab active" data-filter="ALL">All Payments (<span id="buyer-payment-count-all">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-payment-filter-tab" data-filter="COMPLETED">Completed (<span id="buyer-payment-count-completed">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-payment-filter-tab" data-filter="PENDING">Pending (<span id="buyer-payment-count-pending">0</span>)</button>
+                        <button type="button" class="filter-tab buyer-payment-filter-tab" data-filter="REFUNDED">Refunded (<span id="buyer-payment-count-refunded">0</span>)</button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="harvests-table" id="buyer-payments-table">
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Order &amp; Crop</th>
+                                    <th>Farmer</th>
+                                    <th>Amount (₹)</th>
+                                    <th>Method</th>
+                                    <th>Transaction Ref</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyer-payments-tbody">
+                                <tr>
+                                    <td colspan="9" class="text-center py-4 text-muted">No payments recorded yet.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -1485,6 +1759,312 @@
                     </form>
                 </div>
             </div>
+
+            <!-- Phase 9: Create Delivery Modal -->
+            <div id="create-delivery-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 580px;">
+                    <div class="modal-header">
+                        <h3>Schedule &amp; Create Delivery</h3>
+                        <button type="button" class="modal-close-btn" id="close-create-delivery-modal-btn">&times;</button>
+                    </div>
+                    <form id="create-delivery-form" novalidate>
+                        <input type="hidden" id="create-delivery-order-id">
+                        <div id="create-delivery-alert" class="auth-alert hidden"></div>
+
+                        <div class="quality-meta-box" style="margin-bottom: 1rem;">
+                            <div><strong>Order:</strong> <span id="delivery-ctx-order-ref">Order #--</span></div>
+                            <div><strong>Crop &amp; Qty:</strong> <span id="delivery-ctx-crop">--</span></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="delivery-address-input">Delivery Destination Address *</label>
+                            <textarea id="delivery-address-input" class="form-input" rows="2" maxlength="255" required placeholder="Full shipping address / APMC godown"></textarea>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="delivery-vehicle-input">Vehicle / Carrier Number</label>
+                                <input type="text" id="delivery-vehicle-input" class="form-input" maxlength="20" placeholder="e.g. MH-12-AB-1234">
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="delivery-tracking-input">Custom Tracking Code (Optional)</label>
+                                <input type="text" id="delivery-tracking-input" class="form-input" maxlength="50" placeholder="Auto-generated if left blank">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="delivery-remarks-input">Handling Remarks (Optional)</label>
+                            <input type="text" id="delivery-remarks-input" class="form-input" maxlength="255" placeholder="e.g. Fragile produce, keep refrigerated">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-create-delivery-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="confirm-create-delivery-btn">
+                                <span class="btn-spinner hidden" id="create-delivery-spinner"></span>
+                                <span id="create-delivery-text">Create Delivery Record</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 9: Ship Delivery Modal -->
+            <div id="ship-delivery-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 520px;">
+                    <div class="modal-header">
+                        <h3>Ship &amp; Dispatch Delivery</h3>
+                        <button type="button" class="modal-close-btn" id="close-ship-delivery-modal-btn">&times;</button>
+                    </div>
+                    <form id="ship-delivery-form" novalidate>
+                        <input type="hidden" id="ship-delivery-id">
+                        <div id="ship-delivery-alert" class="auth-alert hidden"></div>
+
+                        <div class="quality-meta-box" style="margin-bottom: 1rem;">
+                            <div><strong>Delivery:</strong> <span id="ship-ctx-delivery-ref">Delivery #--</span></div>
+                            <div><strong>Order:</strong> <span id="ship-ctx-order-ref">Order #--</span></div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="ship-vehicle-input">Vehicle Number *</label>
+                                <input type="text" id="ship-vehicle-input" class="form-input" maxlength="20" required placeholder="e.g. MH-14-XY-9876">
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="ship-tracking-input">Waybill / Tracking No.</label>
+                                <input type="text" id="ship-tracking-input" class="form-input" maxlength="50" placeholder="e.g. AGC-EXP-1002">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="ship-remarks-input">Dispatch Remarks (Optional)</label>
+                            <input type="text" id="ship-remarks-input" class="form-input" maxlength="255" placeholder="e.g. Dispatched from farm gate via refrigerated truck">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-ship-delivery-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="confirm-ship-delivery-btn" style="background: #2563eb;">
+                                <span class="btn-spinner hidden" id="ship-delivery-spinner"></span>
+                                <span id="ship-delivery-text">Confirm Dispatch (Ship)</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 9: Delivery Details Modal -->
+            <div id="delivery-details-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 620px;">
+                    <div class="modal-header">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <h3 id="dd-title">Delivery Details</h3>
+                            <span id="dd-status-badge" class="status-pill">--</span>
+                        </div>
+                        <button type="button" class="modal-close-btn" id="close-delivery-details-modal-btn">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 1rem 0;">
+                        <div class="quality-ratings-card" style="margin-bottom: 1rem;">
+                            <div class="rating-row">
+                                <span>📋 Delivery ID / Order ID</span>
+                                <strong><span id="dd-delivery-id">--</span> / Order #<span id="dd-order-id">--</span></strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🌾 Crop &amp; Volume</span>
+                                <strong id="dd-crop-details">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>👨‍🌾 Farmer / Producer</span>
+                                <strong id="dd-farmer-name">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🏪 Buyer / Consignee</span>
+                                <strong id="dd-buyer-name">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>📍 Destination Address</span>
+                                <strong id="dd-address" style="max-width: 300px; text-align: right; word-break: break-word;">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🚚 Vehicle / Carrier Details</span>
+                                <strong id="dd-vehicle">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🏷️ Tracking Reference</span>
+                                <strong id="dd-tracking">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="quality-meta-box">
+                            <div><strong>Estimated Delivery:</strong> <span id="dd-eta">Not specified</span></div>
+                            <div><strong>Dispatched / Shipped At:</strong> <span id="dd-shipped-date">Not yet dispatched</span></div>
+                            <div><strong>Delivered / Completed At:</strong> <span id="dd-delivered-date">Pending delivery</span></div>
+                            <div><strong>Logistics Remarks:</strong> <span id="dd-remarks" style="font-style: italic;">None</span></div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-delivery-details-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 10: Make Payment Modal (Buyer) -->
+            <div id="make-payment-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 540px;">
+                    <div class="modal-header">
+                        <h3>💳 Record Purchase Payment</h3>
+                        <button type="button" class="modal-close-btn" id="close-make-payment-modal-btn">&times;</button>
+                    </div>
+                    <form id="make-payment-form" novalidate>
+                        <input type="hidden" id="payment-order-id">
+                        <div id="make-payment-alert" class="auth-alert hidden"></div>
+
+                        <div class="payment-summary-box">
+                            <div class="payment-summary-stat">
+                                <span class="payment-stat-label">Order Total</span>
+                                <span class="payment-stat-value" id="payment-order-total-val">₹0.00</span>
+                            </div>
+                            <div class="payment-summary-stat">
+                                <span class="payment-stat-label">Already Paid</span>
+                                <span class="payment-stat-value" id="payment-already-paid-val">₹0.00</span>
+                            </div>
+                            <div class="payment-summary-stat">
+                                <span class="payment-stat-label">Remaining Balance</span>
+                                <span class="payment-stat-value balance-due" id="payment-remaining-bal-val">₹0.00</span>
+                            </div>
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group col-6">
+                                <label for="payment-amount-input">Payment Amount (₹) *</label>
+                                <input type="number" id="payment-amount-input" class="form-input" min="0.01" step="0.01" required placeholder="e.g. 5000.00">
+                            </div>
+                            <div class="form-group col-6">
+                                <label for="payment-method-select">Payment Method *</label>
+                                <select id="payment-method-select" class="form-select" required>
+                                    <option value="UPI">UPI (GooglePay / PhonePe / Paytm)</option>
+                                    <option value="BANK_TRANSFER">Bank Transfer (NEFT / RTGS)</option>
+                                    <option value="CASH">Cash on Delivery</option>
+                                    <option value="CHEQUE">Bank Cheque / DD</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment-txn-ref-input">Transaction Reference / UTR (Optional)</label>
+                            <input type="text" id="payment-txn-ref-input" class="form-input" maxlength="100" placeholder="Auto-generated if left blank">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="payment-remarks-input">Payment Remarks (Optional)</label>
+                            <input type="text" id="payment-remarks-input" class="form-input" maxlength="255" placeholder="e.g. Advance deposit for produce shipment">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-make-payment-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary btn-pay" id="confirm-make-payment-btn">
+                                <span class="btn-spinner hidden" id="make-payment-spinner"></span>
+                                <span id="make-payment-text">Submit Payment</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Phase 10: Payment Details Modal -->
+            <div id="payment-details-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <div style="display:flex; align-items:center; gap:0.75rem;">
+                            <h3 id="pd-title">Payment Transaction Details</h3>
+                            <span id="pd-status-badge" class="status-pill">--</span>
+                        </div>
+                        <button type="button" class="modal-close-btn" id="close-payment-details-modal-btn">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding: 1rem 0;">
+                        <div class="quality-ratings-card" style="margin-bottom: 1rem;">
+                            <div class="rating-row">
+                                <span>📋 Payment ID / Order ID</span>
+                                <strong><span id="pd-payment-id">--</span> / Order #<span id="pd-order-id">--</span></strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🌾 Crop &amp; Volume</span>
+                                <strong id="pd-crop-details">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>👨‍🌾 Farmer / Beneficiary</span>
+                                <strong id="pd-farmer-name">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🏪 Buyer / Remitter</span>
+                                <strong id="pd-buyer-name">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>💰 Amount Paid</span>
+                                <strong id="pd-amount" style="color: #16a34a; font-size: 1.1rem;">₹0.00</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>💳 Payment Method</span>
+                                <strong id="pd-method">--</strong>
+                            </div>
+                            <div class="rating-row">
+                                <span>🏷️ Transaction Ref / UTR</span>
+                                <strong id="pd-txn-ref">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="quality-meta-box">
+                            <div><strong>Payment Date:</strong> <span id="pd-date">--</span></div>
+                            <div><strong>Remarks:</strong> <span id="pd-remarks" style="font-style: italic;">None</span></div>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="btn btn-secondary" id="close-payment-details-btn">Close</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Phase 10: Admin Update Payment Status Modal -->
+            <div id="admin-payment-status-modal" class="modal-backdrop hidden">
+                <div class="modal-box" style="max-width: 500px;">
+                    <div class="modal-header">
+                        <h3>Update Payment Status</h3>
+                        <button type="button" class="modal-close-btn" id="close-admin-payment-status-modal-btn">&times;</button>
+                    </div>
+                    <form id="admin-payment-status-form" novalidate>
+                        <input type="hidden" id="admin-update-payment-id">
+                        <div id="admin-payment-status-alert" class="auth-alert hidden"></div>
+
+                        <div class="quality-meta-box" style="margin-bottom: 1rem;">
+                            <div><strong>Payment ID:</strong> <span id="admin-ctx-payment-ref">Payment #--</span></div>
+                            <div><strong>Current Status:</strong> <span id="admin-ctx-payment-status">--</span></div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="admin-payment-target-status">New Payment Status *</label>
+                            <select id="admin-payment-target-status" class="form-select" required>
+                                <option value="COMPLETED">COMPLETED (Settled)</option>
+                                <option value="PAID">PAID</option>
+                                <option value="PROCESSING">PROCESSING</option>
+                                <option value="REFUNDED">REFUNDED</option>
+                                <option value="FAILED">FAILED</option>
+                                <option value="CANCELLED">CANCELLED</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="admin-payment-remarks-input">Audit Remarks (Optional)</label>
+                            <input type="text" id="admin-payment-remarks-input" class="form-input" maxlength="255" placeholder="e.g. Escrow settlement approved or refund issued">
+                        </div>
+
+                        <div class="modal-actions">
+                            <button type="button" class="btn btn-secondary" id="dismiss-admin-payment-status-btn">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="confirm-admin-payment-status-btn">
+                                <span class="btn-spinner hidden" id="admin-payment-status-spinner"></span>
+                                <span id="admin-payment-status-text">Save Status</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </section>
 
         <!-- Phase 1 System Health & Readiness Monitor (Preserved) -->
@@ -1589,7 +2169,7 @@
     </main>
 
     <footer class="app-footer">
-        <p>AgriConnect &copy; 2026 — College DBMS Project &bull; Phase 5: Quality Management &amp; Verification</p>
+        <p>AgriConnect &copy; 2026 — College DBMS Project &bull; Phase 10: Payment Management</p>
     </footer>
 
     <script src="js/app.js"></script>

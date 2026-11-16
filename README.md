@@ -39,6 +39,57 @@ The platform serves three user roles:
 
 ## Current Phase
 
+### Phase 9 — Delivery Management (Completed)
+The purpose of Phase 9 is to implement comprehensive delivery management and logistics tracking using the existing Phase 8 order system.
+
+Key accomplishments in Phase 9:
+- **Relational Schema Migration (`07_phase9_delivery_management.sql`)**:
+  - Updated `deliveries.delivery_status` ENUM with full lifecycle statuses (`PENDING`, `DISPATCHED`, `IN_TRANSIT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `FAILED`).
+  - Added `remarks VARCHAR(255)` for carrier, handling, and handover notes.
+  - Added `estimated_delivery_date DATETIME` for target arrival estimates.
+  - Added `updated_at TIMESTAMP` with automatic `CURRENT_TIMESTAMP ON UPDATE` auditing.
+  - Added composite index `idx_deliveries_order_status (order_id, delivery_status)` for efficient status and order lookups.
+  - Maintained 1:1 relational guarantee: `order_id INT NOT NULL UNIQUE`.
+- **Atomic State Synchronization & Lifecycle Consistency**:
+  - Strict lifecycle transitions: `PENDING -> SHIPPED -> DELIVERED` (or `CANCELLED`/`FAILED`).
+  - Order-Delivery synchronization:
+    - Scheduling delivery for an `ACCEPTED` order atomically advances order status to `CONFIRMED`.
+    - Dispatching a shipment (`/ship`) transitions both delivery and order to `SHIPPED`.
+    - Marking delivered by farmer (`/deliver`) or confirming receipt by buyer (`/confirm-received`) atomically transitions both delivery and order to `DELIVERED`.
+    - Invalid backward transitions (e.g. `DELIVERED -> SHIPPED`, `SHIPPED -> ACCEPTED`) are strictly rejected with HTTP 400.
+    - Duplicate delivery creation attempts on the same order are blocked with HTTP 400 (`DuplicateDeliveryException`).
+- **Strict Role-Based Access Control (RBAC) & Ownership Security**:
+  - Authenticated identities extracted strictly from JWT (`ROLE_BUYER`, `ROLE_FARMER`, `ROLE_ADMIN`).
+  - Buyer permissions: Schedule delivery for own orders, inspect inbound deliveries, confirm delivery receipt. Insecure Direct Object Access (IDOR) to other buyers' deliveries blocked with HTTP 403 Forbidden.
+  - Farmer permissions: Schedule delivery for own orders, inspect outgoing deliveries for own produce, dispatch shipments (`PATCH .../ship`) with carrier/tracking info, mark delivered (`PATCH .../deliver`). Modifications to other farmers' deliveries blocked with HTTP 403 Forbidden.
+  - Admin permissions: View and monitor all platform deliveries, inspect full audit details, and update statuses.
+  - Unauthenticated requests blocked with HTTP 401 Unauthorized; cross-role violations blocked with HTTP 403 Forbidden.
+- **REST APIs**:
+  - **Buyer**:
+    - `POST /api/buyer/deliveries` (Schedule delivery for accepted order)
+    - `GET /api/buyer/deliveries` (Inbound deliveries history)
+    - `GET /api/buyer/deliveries/{id}` (Single delivery tracking details)
+    - `PATCH /api/buyer/deliveries/{id}/confirm-received` (Buyer confirms produce delivery receipt)
+  - **Farmer**:
+    - `POST /api/farmer/deliveries` (Schedule delivery for accepted order)
+    - `GET /api/farmer/deliveries` (Outgoing shipments for farmer's produce)
+    - `GET /api/farmer/deliveries/{id}` (Single delivery tracking details)
+    - `PATCH /api/farmer/deliveries/{id}/ship` (Farmer dispatches shipment with vehicle/tracking)
+    - `PATCH /api/farmer/deliveries/{id}/deliver` (Farmer marks delivery complete)
+  - **Admin**:
+    - `GET /api/admin/deliveries` (Global logistics monitoring with status filters)
+    - `GET /api/admin/deliveries/{id}` (Detailed logistics inspection)
+    - `PATCH /api/admin/deliveries/{id}/status` (Administrative status and remarks update)
+- **Frontend Integration**:
+  - **Farmer Workflow**: Outgoing Deliveries & Logistics dashboard card with status filter tabs (`ALL`, `PENDING`, `SHIPPED`, `DELIVERED`), Ship modal, and rich Delivery Details inspection modal.
+  - **Buyer Workflow**: Inbound Deliveries & Tracking dashboard card with status filter tabs, Confirm Receipt action, and Delivery Details inspection modal.
+  - **Admin Workflow**: Global Delivery & Logistics Monitoring card with multi-role oversight.
+  - **Order Synchronization**: Schedule delivery shortcuts embedded directly within accepted order rows.
+- **Test Suite**:
+  - 18 isolated Mockito unit tests in `DeliveryServiceTest` covering 100% of functional requirements and edge cases.
+  - 8 `@WebMvcTest` controller tests in `DeliveryControllerTest` verifying endpoints and security.
+  - 109 total unit & WebMvc tests passing with `BUILD SUCCESS`.
+
 ### Phase 8 — Order Management (Completed)
 The purpose of Phase 8 is to implement a complete, atomic order management lifecycle connecting buyer requirements and quality-aware matching results to farmer harvest purchases.
 
@@ -270,8 +321,8 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 6 — Buyer Requirements** *(Completed)*
 - [x] **Phase 7 — Quality-Aware Matching** *(Completed)*
 - [x] **Phase 8 — Order Management** *(Completed)*
-- [ ] **Phase 9 — Delivery Management**
-- [ ] **Phase 10 — Payment Management**
+- [x] **Phase 9 — Delivery Management** *(Completed)*
+- [x] **Phase 10 — Payment Management** *(Completed)*
 - [ ] **Phase 11 — Price History**
 - [ ] **Phase 12 — Admin Dashboard**
 - [ ] **Phase 13 — DBMS Queries & Reports**

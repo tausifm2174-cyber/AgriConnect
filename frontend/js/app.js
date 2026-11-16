@@ -16,6 +16,14 @@ const ADMIN_QUALITY_ENDPOINT = `${API_BASE_URL}/api/admin/quality`;
 const BUYER_ORDERS_ENDPOINT = `${API_BASE_URL}/api/buyer/orders`;
 const FARMER_ORDERS_ENDPOINT = `${API_BASE_URL}/api/farmer/orders`;
 const ADMIN_ORDERS_ENDPOINT = `${API_BASE_URL}/api/admin/orders`;
+const BUYER_DELIVERIES_ENDPOINT = `${API_BASE_URL}/api/buyer/deliveries`;
+const FARMER_DELIVERIES_ENDPOINT = `${API_BASE_URL}/api/farmer/deliveries`;
+const ADMIN_DELIVERIES_ENDPOINT = `${API_BASE_URL}/api/admin/deliveries`;
+
+// Phase 10 Payment Endpoints
+const BUYER_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/buyer/payments`;
+const FARMER_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/farmer/payments`;
+const ADMIN_PAYMENTS_ENDPOINT = `${API_BASE_URL}/api/admin/payments`;
 
 const TOKEN_STORAGE_KEY = 'agriconnect_jwt_token';
 
@@ -36,6 +44,22 @@ let activeBuyerOrderFilter = 'ALL';
 let adminOrders = [];
 let activeAdminOrderFilter = 'ALL';
 let activeOrderUnitPrice = 0;
+
+// Phase 9 Delivery State
+let farmerDeliveries = [];
+let activeFarmerDeliveryFilter = 'ALL';
+let buyerDeliveries = [];
+let activeBuyerDeliveryFilter = 'ALL';
+let adminDeliveries = [];
+let activeAdminDeliveryFilter = 'ALL';
+
+// Phase 10 Payment State
+let farmerPayments = [];
+let activeFarmerPaymentFilter = 'ALL';
+let buyerPayments = [];
+let activeBuyerPaymentFilter = 'ALL';
+let adminPayments = [];
+let activeAdminPaymentFilter = 'ALL';
 
 // DOM Elements - Health Monitor (Phase 1)
 const backendBadge = document.getElementById('backend-status-badge');
@@ -828,6 +852,8 @@ async function initFarmerDashboard() {
     await loadFarmerProfileData();
     await loadFarmerHarvests();
     await loadFarmerOrders();
+    await loadFarmerDeliveries();
+    await loadFarmerPayments();
 }
 
 async function loadCropCatalog() {
@@ -1427,6 +1453,8 @@ async function initAdminQualityDashboard() {
     await loadAdminQualityMetrics();
     await loadAdminQualityQueue();
     await loadAdminOrders();
+    await loadAdminDeliveries();
+    await loadAdminPayments();
 }
 
 async function loadAdminQualityMetrics() {
@@ -1876,6 +1904,8 @@ async function initBuyerDashboard() {
     await loadBuyerMetrics();
     await loadBuyerRequirements();
     await loadBuyerOrders();
+    await loadBuyerDeliveries();
+    await loadBuyerPayments();
 }
 
 async function loadBuyerCropsCatalog() {
@@ -2634,8 +2664,31 @@ function getOrderStatusPill(status) {
     const s = (status || 'PENDING').toUpperCase();
     let badgeClass = 'status-pending';
     if (s === 'ACCEPTED') badgeClass = 'status-accepted';
+    else if (s === 'CONFIRMED') badgeClass = 'status-confirmed';
+    else if (s === 'SHIPPED') badgeClass = 'status-shipped';
+    else if (s === 'DELIVERED') badgeClass = 'status-delivered';
     else if (s === 'REJECTED') badgeClass = 'status-rejected';
     else if (s === 'CANCELLED') badgeClass = 'status-cancelled';
+    return `<span class="status-pill ${badgeClass}">${s}</span>`;
+}
+
+function getDeliveryStatusPill(status) {
+    const s = (status || 'PENDING').toUpperCase();
+    let badgeClass = 'status-pending';
+    if (s === 'SHIPPED') badgeClass = 'status-shipped';
+    else if (s === 'IN_TRANSIT') badgeClass = 'status-in_transit';
+    else if (s === 'DELIVERED') badgeClass = 'status-delivered';
+    else if (s === 'CANCELLED' || s === 'FAILED') badgeClass = 'status-cancelled';
+    return `<span class="status-pill ${badgeClass}">${s}</span>`;
+}
+
+function getPaymentStatusPill(status) {
+    const s = (status || 'PENDING').toUpperCase();
+    let badgeClass = 'status-pending';
+    if (s === 'COMPLETED' || s === 'PAID') badgeClass = 'status-completed';
+    else if (s === 'PROCESSING') badgeClass = 'status-processing';
+    else if (s === 'REFUNDED') badgeClass = 'status-refunded';
+    else if (s === 'FAILED' || s === 'CANCELLED') badgeClass = 'status-failed';
     return `<span class="status-pill ${badgeClass}">${s}</span>`;
 }
 
@@ -2818,18 +2871,27 @@ function updateBuyerOrderCounts() {
     const all = buyerOrders.length;
     const pending = buyerOrders.filter(o => o.orderStatus === 'PENDING').length;
     const accepted = buyerOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const confirmed = buyerOrders.filter(o => o.orderStatus === 'CONFIRMED').length;
+    const shipped = buyerOrders.filter(o => o.orderStatus === 'SHIPPED').length;
+    const delivered = buyerOrders.filter(o => o.orderStatus === 'DELIVERED').length;
     const rejected = buyerOrders.filter(o => o.orderStatus === 'REJECTED').length;
     const cancelled = buyerOrders.filter(o => o.orderStatus === 'CANCELLED').length;
 
     const elAll = document.getElementById('buyer-order-count-all');
     const elPending = document.getElementById('buyer-order-count-pending');
     const elAccepted = document.getElementById('buyer-order-count-accepted');
+    const elConfirmed = document.getElementById('buyer-order-count-confirmed');
+    const elShipped = document.getElementById('buyer-order-count-shipped');
+    const elDelivered = document.getElementById('buyer-order-count-delivered');
     const elRejected = document.getElementById('buyer-order-count-rejected');
     const elCancelled = document.getElementById('buyer-order-count-cancelled');
 
     if (elAll) elAll.textContent = all;
     if (elPending) elPending.textContent = pending;
     if (elAccepted) elAccepted.textContent = accepted;
+    if (elConfirmed) elConfirmed.textContent = confirmed;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
     if (elRejected) elRejected.textContent = rejected;
     if (elCancelled) elCancelled.textContent = cancelled;
 }
@@ -2877,6 +2939,16 @@ function renderBuyerOrdersTable() {
                         <button type="button" class="btn-action btn-assess" onclick="openOrderDetailsModal(${order.orderId}, 'BUYER')">
                             👁️ Details
                         </button>
+                        ${['ACCEPTED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(order.orderStatus) ? `
+                            <button type="button" class="btn-action btn-pay" onclick="openMakePaymentModal(${order.orderId}, ${order.totalAmount}, '${escapeHtml(order.cropName || 'Crop')}')">
+                                💳 Pay
+                            </button>
+                        ` : ''}
+                        ${order.orderStatus === 'ACCEPTED' ? `
+                            <button type="button" class="btn-action" style="background:#0284c7; color:#fff;" onclick="openCreateDeliveryModal(${order.orderId}, '${escapeHtml(order.cropName || 'Crop')}', ${order.quantity})">
+                                🚚 Delivery
+                            </button>
+                        ` : ''}
                         ${canCancel ? `
                             <button type="button" class="btn-action btn-cancel-order" onclick="openCancelOrderModal(${order.orderId})">
                                 🚫 Cancel
@@ -2987,18 +3059,27 @@ function updateFarmerOrderCounts() {
     const all = farmerOrders.length;
     const pending = farmerOrders.filter(o => o.orderStatus === 'PENDING').length;
     const accepted = farmerOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const confirmed = farmerOrders.filter(o => o.orderStatus === 'CONFIRMED').length;
+    const shipped = farmerOrders.filter(o => o.orderStatus === 'SHIPPED').length;
+    const delivered = farmerOrders.filter(o => o.orderStatus === 'DELIVERED').length;
     const rejected = farmerOrders.filter(o => o.orderStatus === 'REJECTED').length;
     const cancelled = farmerOrders.filter(o => o.orderStatus === 'CANCELLED').length;
 
     const elAll = document.getElementById('farmer-order-count-all');
     const elPending = document.getElementById('farmer-order-count-pending');
     const elAccepted = document.getElementById('farmer-order-count-accepted');
+    const elConfirmed = document.getElementById('farmer-order-count-confirmed');
+    const elShipped = document.getElementById('farmer-order-count-shipped');
+    const elDelivered = document.getElementById('farmer-order-count-delivered');
     const elRejected = document.getElementById('farmer-order-count-rejected');
     const elCancelled = document.getElementById('farmer-order-count-cancelled');
 
     if (elAll) elAll.textContent = all;
     if (elPending) elPending.textContent = pending;
     if (elAccepted) elAccepted.textContent = accepted;
+    if (elConfirmed) elConfirmed.textContent = confirmed;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
     if (elRejected) elRejected.textContent = rejected;
     if (elCancelled) elCancelled.textContent = cancelled;
 }
@@ -3049,6 +3130,11 @@ function renderFarmerOrdersTable() {
                             </button>
                             <button type="button" class="btn-action btn-reject" onclick="openRejectOrderModal(${order.orderId})">
                                 ❌ Reject
+                            </button>
+                        ` : ''}
+                        ${order.orderStatus === 'ACCEPTED' ? `
+                            <button type="button" class="btn-action" style="background:#0284c7; color:#fff;" onclick="openCreateDeliveryModal(${order.orderId}, '${escapeHtml(order.cropName || 'Crop')}', ${order.quantity})">
+                                🚚 Delivery
                             </button>
                         ` : ''}
                         <button type="button" class="btn-action btn-assess" onclick="openOrderDetailsModal(${order.orderId}, 'FARMER')">
@@ -3203,18 +3289,27 @@ function updateAdminOrderCounts() {
     const all = adminOrders.length;
     const pending = adminOrders.filter(o => o.orderStatus === 'PENDING').length;
     const accepted = adminOrders.filter(o => o.orderStatus === 'ACCEPTED').length;
+    const confirmed = adminOrders.filter(o => o.orderStatus === 'CONFIRMED').length;
+    const shipped = adminOrders.filter(o => o.orderStatus === 'SHIPPED').length;
+    const delivered = adminOrders.filter(o => o.orderStatus === 'DELIVERED').length;
     const rejected = adminOrders.filter(o => o.orderStatus === 'REJECTED').length;
     const cancelled = adminOrders.filter(o => o.orderStatus === 'CANCELLED').length;
 
     const elAll = document.getElementById('admin-order-count-all');
     const elPending = document.getElementById('admin-order-count-pending');
     const elAccepted = document.getElementById('admin-order-count-accepted');
+    const elConfirmed = document.getElementById('admin-order-count-confirmed');
+    const elShipped = document.getElementById('admin-order-count-shipped');
+    const elDelivered = document.getElementById('admin-order-count-delivered');
     const elRejected = document.getElementById('admin-order-count-rejected');
     const elCancelled = document.getElementById('admin-order-count-cancelled');
 
     if (elAll) elAll.textContent = all;
     if (elPending) elPending.textContent = pending;
     if (elAccepted) elAccepted.textContent = accepted;
+    if (elConfirmed) elConfirmed.textContent = confirmed;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
     if (elRejected) elRejected.textContent = rejected;
     if (elCancelled) elCancelled.textContent = cancelled;
 }
@@ -3332,8 +3427,1240 @@ function closeOrderDetailsModal() {
 }
 window.closeOrderDetailsModal = closeOrderDetailsModal;
 
+// ===================================================================
+// Phase 9: Delivery & Logistics Management Logic
+// ===================================================================
+
+// --- Farmer Delivery Operations ---
+
+async function loadFarmerDeliveries() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(FARMER_DELIVERIES_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            farmerDeliveries = result.data || [];
+            updateFarmerDeliveryCounts();
+            renderFarmerDeliveriesTable();
+        }
+    } catch (err) {
+        console.error('Failed to load farmer deliveries:', err);
+    }
+}
+window.loadFarmerDeliveries = loadFarmerDeliveries;
+
+function updateFarmerDeliveryCounts() {
+    const all = farmerDeliveries.length;
+    const pending = farmerDeliveries.filter(d => d.deliveryStatus === 'PENDING').length;
+    const shipped = farmerDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT').length;
+    const delivered = farmerDeliveries.filter(d => d.deliveryStatus === 'DELIVERED').length;
+
+    const elAll = document.getElementById('farmer-delivery-count-all');
+    const elPending = document.getElementById('farmer-delivery-count-pending');
+    const elShipped = document.getElementById('farmer-delivery-count-shipped');
+    const elDelivered = document.getElementById('farmer-delivery-count-delivered');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
+}
+
+function renderFarmerDeliveriesTable() {
+    const tbody = document.getElementById('farmer-deliveries-tbody');
+    if (!tbody) return;
+
+    let filtered = farmerDeliveries;
+    if (activeFarmerDeliveryFilter !== 'ALL') {
+        if (activeFarmerDeliveryFilter === 'SHIPPED') {
+            filtered = farmerDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT');
+        } else {
+            filtered = farmerDeliveries.filter(d => d.deliveryStatus === activeFarmerDeliveryFilter);
+        }
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4 text-muted">
+                    No deliveries found matching filter "${activeFarmerDeliveryFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(del => {
+        const canShip = del.deliveryStatus === 'PENDING';
+        const canDeliver = del.deliveryStatus === 'SHIPPED' || del.deliveryStatus === 'IN_TRANSIT';
+
+        return `
+            <tr>
+                <td><strong>#DEL-${del.deliveryId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">#ORD-${del.orderId} — ${escapeHtml(del.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">${parseFloat(del.quantity || 0).toLocaleString()} kg</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(del.buyerName || 'Buyer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(del.buyerPhone || 'N/A')}</small>
+                </td>
+                <td>
+                    <div style="max-width: 220px; font-size: 0.85rem; line-height: 1.3;" title="${escapeHtml(del.deliveryAddress || '')}">
+                        ${escapeHtml(del.deliveryAddress || 'Not specified')}
+                    </div>
+                </td>
+                <td>
+                    <div><span class="tracking-badge">${escapeHtml(del.trackingNumber || 'Unassigned')}</span></div>
+                    <small style="color: #64748b;">${escapeHtml(del.vehicleNumber || 'Vehicle pending')}</small>
+                </td>
+                <td>
+                    <small>
+                        <div><strong>Ship:</strong> ${del.shippedDate ? formatOrderDateTime(del.shippedDate) : 'Pending'}</div>
+                        <div><strong>Deliv:</strong> ${del.deliveredDate ? formatOrderDateTime(del.deliveredDate) : 'Pending'}</div>
+                    </small>
+                </td>
+                <td>${getDeliveryStatusPill(del.deliveryStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        ${canShip ? `
+                            <button type="button" class="btn-action btn-ship" onclick="openShipDeliveryModal(${del.deliveryId}, ${del.orderId})">
+                                🚚 Ship
+                            </button>
+                        ` : ''}
+                        ${canDeliver ? `
+                            <button type="button" class="btn-action btn-deliver" onclick="handleFarmerMarkDelivered(${del.deliveryId})">
+                                ✅ Delivered
+                            </button>
+                        ` : ''}
+                        <button type="button" class="btn-action btn-assess" onclick="openDeliveryDetailsModal(${del.deliveryId}, 'FARMER')">
+                            👁️ Details
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Buyer Delivery Operations ---
+
+async function loadBuyerDeliveries() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(BUYER_DELIVERIES_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            buyerDeliveries = result.data || [];
+            updateBuyerDeliveryCounts();
+            renderBuyerDeliveriesTable();
+        }
+    } catch (err) {
+        console.error('Failed to load buyer deliveries:', err);
+    }
+}
+window.loadBuyerDeliveries = loadBuyerDeliveries;
+
+function updateBuyerDeliveryCounts() {
+    const all = buyerDeliveries.length;
+    const pending = buyerDeliveries.filter(d => d.deliveryStatus === 'PENDING').length;
+    const shipped = buyerDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT').length;
+    const delivered = buyerDeliveries.filter(d => d.deliveryStatus === 'DELIVERED').length;
+
+    const elAll = document.getElementById('buyer-delivery-count-all');
+    const elPending = document.getElementById('buyer-delivery-count-pending');
+    const elShipped = document.getElementById('buyer-delivery-count-shipped');
+    const elDelivered = document.getElementById('buyer-delivery-count-delivered');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
+}
+
+function renderBuyerDeliveriesTable() {
+    const tbody = document.getElementById('buyer-deliveries-tbody');
+    if (!tbody) return;
+
+    let filtered = buyerDeliveries;
+    if (activeBuyerDeliveryFilter !== 'ALL') {
+        if (activeBuyerDeliveryFilter === 'SHIPPED') {
+            filtered = buyerDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT');
+        } else {
+            filtered = buyerDeliveries.filter(d => d.deliveryStatus === activeBuyerDeliveryFilter);
+        }
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4 text-muted">
+                    No inbound deliveries found matching filter "${activeBuyerDeliveryFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(del => {
+        const canConfirm = del.deliveryStatus === 'SHIPPED' || del.deliveryStatus === 'IN_TRANSIT';
+
+        return `
+            <tr>
+                <td><strong>#DEL-${del.deliveryId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">#ORD-${del.orderId} — ${escapeHtml(del.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">${parseFloat(del.quantity || 0).toLocaleString()} kg</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(del.farmerName || 'Farmer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(del.farmerPhone || 'N/A')}</small>
+                </td>
+                <td>
+                    <div style="max-width: 220px; font-size: 0.85rem; line-height: 1.3;" title="${escapeHtml(del.deliveryAddress || '')}">
+                        ${escapeHtml(del.deliveryAddress || 'Not specified')}
+                    </div>
+                </td>
+                <td>
+                    <div><span class="tracking-badge">${escapeHtml(del.trackingNumber || 'Unassigned')}</span></div>
+                    <small style="color: #64748b;">${escapeHtml(del.vehicleNumber || 'Vehicle pending')}</small>
+                </td>
+                <td>
+                    <small>
+                        <div><strong>Ship:</strong> ${del.shippedDate ? formatOrderDateTime(del.shippedDate) : 'Pending'}</div>
+                        <div><strong>Deliv:</strong> ${del.deliveredDate ? formatOrderDateTime(del.deliveredDate) : 'Pending'}</div>
+                    </small>
+                </td>
+                <td>${getDeliveryStatusPill(del.deliveryStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        ${canConfirm ? `
+                            <button type="button" class="btn-action btn-deliver" onclick="handleBuyerConfirmReceived(${del.deliveryId})">
+                                ✅ Confirm Receipt
+                            </button>
+                        ` : ''}
+                        <button type="button" class="btn-action btn-assess" onclick="openDeliveryDetailsModal(${del.deliveryId}, 'BUYER')">
+                            👁️ Details
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Admin Delivery Operations ---
+
+async function loadAdminDeliveries() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(ADMIN_DELIVERIES_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            adminDeliveries = result.data || [];
+            updateAdminDeliveryCounts();
+            renderAdminDeliveriesTable();
+        }
+    } catch (err) {
+        console.error('Failed to load admin deliveries:', err);
+    }
+}
+window.loadAdminDeliveries = loadAdminDeliveries;
+
+function updateAdminDeliveryCounts() {
+    const all = adminDeliveries.length;
+    const pending = adminDeliveries.filter(d => d.deliveryStatus === 'PENDING').length;
+    const shipped = adminDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT').length;
+    const delivered = adminDeliveries.filter(d => d.deliveryStatus === 'DELIVERED').length;
+
+    const elAll = document.getElementById('admin-delivery-count-all');
+    const elPending = document.getElementById('admin-delivery-count-pending');
+    const elShipped = document.getElementById('admin-delivery-count-shipped');
+    const elDelivered = document.getElementById('admin-delivery-count-delivered');
+
+    if (elAll) elAll.textContent = all;
+    if (elPending) elPending.textContent = pending;
+    if (elShipped) elShipped.textContent = shipped;
+    if (elDelivered) elDelivered.textContent = delivered;
+}
+
+function renderAdminDeliveriesTable() {
+    const tbody = document.getElementById('admin-deliveries-tbody');
+    if (!tbody) return;
+
+    let filtered = adminDeliveries;
+    if (activeAdminDeliveryFilter !== 'ALL') {
+        if (activeAdminDeliveryFilter === 'SHIPPED') {
+            filtered = adminDeliveries.filter(d => d.deliveryStatus === 'SHIPPED' || d.deliveryStatus === 'IN_TRANSIT');
+        } else {
+            filtered = adminDeliveries.filter(d => d.deliveryStatus === activeAdminDeliveryFilter);
+        }
+    }
+
+    if (!filtered || filtered.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4 text-muted">
+                    No deliveries recorded in the system for status "${activeAdminDeliveryFilter}".
+                </td>
+            </tr>
+        `;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(del => {
+        return `
+            <tr>
+                <td><strong>#DEL-${del.deliveryId}</strong></td>
+                <td>
+                    <div style="font-weight: 600;">#ORD-${del.orderId} — ${escapeHtml(del.cropName || 'Crop')}</div>
+                    <small style="color: #64748b;">${parseFloat(del.quantity || 0).toLocaleString()} kg</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(del.buyerName || 'Buyer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(del.buyerPhone || 'N/A')}</small>
+                </td>
+                <td>
+                    <div><strong>${escapeHtml(del.farmerName || 'Farmer')}</strong></div>
+                    <small style="color: #64748b;">${escapeHtml(del.farmerPhone || 'N/A')}</small>
+                </td>
+                <td>
+                    <div style="max-width: 200px; font-size: 0.85rem;" title="${escapeHtml(del.deliveryAddress || '')}">
+                        ${escapeHtml(del.deliveryAddress || 'Not specified')}
+                    </div>
+                </td>
+                <td>
+                    <div><span class="tracking-badge">${escapeHtml(del.trackingNumber || 'Unassigned')}</span></div>
+                    <small style="color: #64748b;">${escapeHtml(del.vehicleNumber || 'Pending')}</small>
+                </td>
+                <td>${getDeliveryStatusPill(del.deliveryStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="btn-action btn-assess" onclick="openDeliveryDetailsModal(${del.deliveryId}, 'ADMIN')">
+                            👁️ Monitor
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Modals & Actions ---
+
+function openCreateDeliveryModal(orderId, cropName = '', qty = 0) {
+    document.getElementById('delivery-order-id').value = orderId;
+    document.getElementById('create-delivery-order-ref').textContent = `#ORD-${orderId}`;
+    document.getElementById('create-delivery-crop-info').textContent = cropName || 'Produce Lot';
+    document.getElementById('create-delivery-qty-info').textContent = qty ? `${parseFloat(qty).toLocaleString()} kg` : '--';
+
+    document.getElementById('delivery-address-input').value = '';
+    document.getElementById('delivery-vehicle-input').value = '';
+    document.getElementById('delivery-tracking-input').value = '';
+    document.getElementById('delivery-eta-input').value = '';
+    document.getElementById('delivery-remarks-input').value = '';
+
+    const alertEl = document.getElementById('create-delivery-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    const modal = document.getElementById('create-delivery-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+window.openCreateDeliveryModal = openCreateDeliveryModal;
+
+function closeCreateDeliveryModal() {
+    const modal = document.getElementById('create-delivery-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeCreateDeliveryModal = closeCreateDeliveryModal;
+
+async function handleCreateDeliverySubmit(event) {
+    if (event) event.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const orderId = document.getElementById('delivery-order-id').value;
+    const deliveryAddress = document.getElementById('delivery-address-input').value.trim();
+    const vehicleNumber = document.getElementById('delivery-vehicle-input').value.trim();
+    const trackingNumber = document.getElementById('delivery-tracking-input').value.trim();
+    const etaInput = document.getElementById('delivery-eta-input').value;
+    const remarks = document.getElementById('delivery-remarks-input').value.trim();
+
+    const alertEl = document.getElementById('create-delivery-alert');
+    const spinner = document.getElementById('create-delivery-spinner');
+    const btnText = document.getElementById('create-delivery-text');
+    const submitBtn = document.getElementById('confirm-create-delivery-btn');
+
+    if (!deliveryAddress) {
+        if (alertEl) {
+            alertEl.textContent = 'Delivery / Shipping Address is required.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const payload = {
+        orderId: parseInt(orderId, 10),
+        deliveryAddress: deliveryAddress,
+        vehicleNumber: vehicleNumber || null,
+        trackingNumber: trackingNumber || null,
+        estimatedDeliveryDate: etaInput ? new Date(etaInput).toISOString() : null,
+        remarks: remarks || null
+    };
+
+    if (spinner) spinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = 'Creating...';
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+        const isFarmer = currentUser && currentUser.role === 'FARMER';
+        const endpoint = isFarmer ? FARMER_DELIVERIES_ENDPOINT : BUYER_DELIVERIES_ENDPOINT;
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            closeCreateDeliveryModal();
+            if (isFarmer) {
+                await loadFarmerDeliveries();
+                await loadFarmerOrders();
+                showFarmerDeliveryAlert('Delivery successfully scheduled!', 'success');
+            } else {
+                await loadBuyerDeliveries();
+                await loadBuyerOrders();
+                showBuyerDeliveryAlert('Delivery successfully scheduled!', 'success');
+            }
+        } else {
+            if (alertEl) {
+                alertEl.textContent = data.message || 'Failed to create delivery record.';
+                alertEl.className = 'auth-alert auth-alert-error';
+                alertEl.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (alertEl) {
+            alertEl.textContent = 'Network error communicating with delivery service.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Create Delivery Record';
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+function openShipDeliveryModal(deliveryId, orderId) {
+    document.getElementById('ship-target-delivery-id').value = deliveryId;
+    document.getElementById('ship-delivery-ref').textContent = `Delivery #DEL-${deliveryId} (Order #ORD-${orderId})`;
+    document.getElementById('ship-vehicle-input').value = '';
+    document.getElementById('ship-tracking-input').value = '';
+    document.getElementById('ship-remarks-input').value = '';
+
+    const alertEl = document.getElementById('ship-delivery-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    const modal = document.getElementById('ship-delivery-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+window.openShipDeliveryModal = openShipDeliveryModal;
+
+function closeShipDeliveryModal() {
+    const modal = document.getElementById('ship-delivery-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeShipDeliveryModal = closeShipDeliveryModal;
+
+async function handleShipDeliverySubmit(event) {
+    if (event) event.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const deliveryId = document.getElementById('ship-target-delivery-id').value;
+    const vehicleNumber = document.getElementById('ship-vehicle-input').value.trim();
+    const trackingNumber = document.getElementById('ship-tracking-input').value.trim();
+    const remarks = document.getElementById('ship-remarks-input').value.trim();
+
+    const alertEl = document.getElementById('ship-delivery-alert');
+    const spinner = document.getElementById('ship-delivery-spinner');
+    const btnText = document.getElementById('ship-delivery-text');
+    const submitBtn = document.getElementById('confirm-ship-delivery-btn');
+
+    if (spinner) spinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = 'Dispatching...';
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+        const response = await fetch(`${FARMER_DELIVERIES_ENDPOINT}/${deliveryId}/ship`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                vehicleNumber: vehicleNumber || null,
+                trackingNumber: trackingNumber || null,
+                remarks: remarks || null
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            closeShipDeliveryModal();
+            await loadFarmerDeliveries();
+            await loadFarmerOrders();
+            showFarmerDeliveryAlert(`Shipment #DEL-${deliveryId} dispatched successfully! Order marked as SHIPPED.`, 'success');
+        } else {
+            if (alertEl) {
+                alertEl.textContent = data.message || 'Failed to dispatch shipment.';
+                alertEl.className = 'auth-alert auth-alert-error';
+                alertEl.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        if (alertEl) {
+            alertEl.textContent = 'Network error dispatching shipment.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Confirm Dispatch (Ship)';
+        if (submitBtn) submitBtn.disabled = false;
+    }
+}
+
+async function handleFarmerMarkDelivered(deliveryId) {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (!confirm(`Mark delivery #DEL-${deliveryId} as DELIVERED? This completes fulfillment and transitions the underlying order to DELIVERED.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${FARMER_DELIVERIES_ENDPOINT}/${deliveryId}/deliver`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                remarks: 'Delivered confirmed by producer'
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            await loadFarmerDeliveries();
+            await loadFarmerOrders();
+            showFarmerDeliveryAlert(`Delivery #DEL-${deliveryId} marked as DELIVERED successfully!`, 'success');
+        } else {
+            showFarmerDeliveryAlert(data.message || 'Failed to mark delivery delivered.', 'error');
+        }
+    } catch (err) {
+        showFarmerDeliveryAlert('Network error completing delivery.', 'error');
+    }
+}
+window.handleFarmerMarkDelivered = handleFarmerMarkDelivered;
+
+async function handleBuyerConfirmReceived(deliveryId) {
+    const token = getAuthToken();
+    if (!token) return;
+
+    if (!confirm(`Confirm receipt for delivery #DEL-${deliveryId}? This acknowledges full produce handover and closes the order as DELIVERED.`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`${BUYER_DELIVERIES_ENDPOINT}/${deliveryId}/confirm-received`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                remarks: 'Produce delivery received and confirmed by buyer'
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            await loadBuyerDeliveries();
+            await loadBuyerOrders();
+            showBuyerDeliveryAlert(`Delivery #DEL-${deliveryId} receipt confirmed! Order marked as DELIVERED.`, 'success');
+        } else {
+            showBuyerDeliveryAlert(data.message || 'Failed to confirm delivery receipt.', 'error');
+        }
+    } catch (err) {
+        showBuyerDeliveryAlert('Network error confirming receipt.', 'error');
+    }
+}
+window.handleBuyerConfirmReceived = handleBuyerConfirmReceived;
+
+async function openDeliveryDetailsModal(deliveryId, role = 'BUYER') {
+    const token = getAuthToken();
+    if (!token) return;
+
+    let endpoint = `${BUYER_DELIVERIES_ENDPOINT}/${deliveryId}`;
+    if (role === 'FARMER') endpoint = `${FARMER_DELIVERIES_ENDPOINT}/${deliveryId}`;
+    else if (role === 'ADMIN') endpoint = `${ADMIN_DELIVERIES_ENDPOINT}/${deliveryId}`;
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            const del = result.data;
+            if (!del) return;
+
+            document.getElementById('dd-delivery-id').textContent = `#DEL-${del.deliveryId}`;
+            document.getElementById('dd-order-id').textContent = del.orderId;
+            document.getElementById('dd-status-badge').innerHTML = getDeliveryStatusPill(del.deliveryStatus);
+            document.getElementById('dd-crop-details').textContent = `${del.cropName || 'Produce'} — ${parseFloat(del.quantity || 0).toLocaleString()} kg`;
+            document.getElementById('dd-farmer-name').textContent = `${del.farmerName || 'Farmer'} (${del.farmerPhone || 'N/A'})`;
+            document.getElementById('dd-buyer-name').textContent = `${del.buyerName || 'Buyer'} (${del.buyerPhone || 'N/A'})`;
+            document.getElementById('dd-address').textContent = del.deliveryAddress || 'Not specified';
+            document.getElementById('dd-vehicle').textContent = del.vehicleNumber || 'Unassigned';
+            document.getElementById('dd-tracking').textContent = del.trackingNumber || 'Unassigned';
+            document.getElementById('dd-eta').textContent = del.estimatedDeliveryDate ? formatOrderDateTime(del.estimatedDeliveryDate) : 'Not specified';
+            document.getElementById('dd-shipped-date').textContent = del.shippedDate ? formatOrderDateTime(del.shippedDate) : 'Not yet dispatched';
+            document.getElementById('dd-delivered-date').textContent = del.deliveredDate ? formatOrderDateTime(del.deliveredDate) : 'Pending delivery';
+            document.getElementById('dd-remarks').textContent = del.remarks || 'None';
+
+            const modal = document.getElementById('delivery-details-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error('Error opening delivery details:', err);
+    }
+}
+window.openDeliveryDetailsModal = openDeliveryDetailsModal;
+
+function closeDeliveryDetailsModal() {
+    const modal = document.getElementById('delivery-details-modal');
+    if (modal) modal.classList.add('hidden');
+}
+window.closeDeliveryDetailsModal = closeDeliveryDetailsModal;
+
+function showFarmerDeliveryAlert(msg, type = 'success') {
+    const el = document.getElementById('farmer-deliveries-alert');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function showBuyerDeliveryAlert(msg, type = 'success') {
+    const el = document.getElementById('buyer-deliveries-alert');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// ===================================================================
+// Phase 10: Payment Processing, Tracking & Settlement Logic
+// ===================================================================
+
+function showFarmerPaymentAlert(msg, type = 'success') {
+    const el = document.getElementById('farmer-payments-alert');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function showBuyerPaymentAlert(msg, type = 'success') {
+    const el = document.getElementById('buyer-payments-alert');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+function showAdminPaymentAlert(msg, type = 'success') {
+    const el = document.getElementById('admin-payments-alert');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `auth-alert auth-alert-${type}`;
+    el.classList.remove('hidden');
+    setTimeout(() => el.classList.add('hidden'), 5000);
+}
+
+// --- Farmer Payment Operations ---
+
+async function loadFarmerPayments() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(FARMER_PAYMENTS_ENDPOINT, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            farmerPayments = result.data || [];
+            updateFarmerPaymentCounts();
+            renderFarmerPaymentsTable();
+        }
+    } catch (err) {
+        console.error('Failed to load farmer payments:', err);
+    }
+}
+
+function updateFarmerPaymentCounts() {
+    const completed = farmerPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID').length;
+    const pending = farmerPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING').length;
+    const refunded = farmerPayments.filter(p => p.paymentStatus === 'REFUNDED').length;
+
+    const elAll = document.getElementById('farmer-payment-count-all');
+    const elCompleted = document.getElementById('farmer-payment-count-completed');
+    const elPending = document.getElementById('farmer-payment-count-pending');
+    const elRefunded = document.getElementById('farmer-payment-count-refunded');
+
+    if (elAll) elAll.textContent = farmerPayments.length;
+    if (elCompleted) elCompleted.textContent = completed;
+    if (elPending) elPending.textContent = pending;
+    if (elRefunded) elRefunded.textContent = refunded;
+}
+
+function renderFarmerPaymentsTable() {
+    const tbody = document.getElementById('farmer-payments-tbody');
+    if (!tbody) return;
+
+    let filtered = farmerPayments;
+    if (activeFarmerPaymentFilter === 'COMPLETED') {
+        filtered = farmerPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID');
+    } else if (activeFarmerPaymentFilter === 'PENDING') {
+        filtered = farmerPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING');
+    } else if (activeFarmerPaymentFilter === 'REFUNDED') {
+        filtered = farmerPayments.filter(p => p.paymentStatus === 'REFUNDED');
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No payments found matching "${activeFarmerPaymentFilter}".</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(payment => {
+        const dateStr = payment.paymentDate ? formatOrderDateTime(payment.paymentDate) : '--';
+        return `
+            <tr>
+                <td><strong>#PAY-${payment.paymentId}</strong></td>
+                <td>
+                    <strong>${escapeHtml(payment.cropName || 'Crop')}</strong>
+                    <br><small style="color:#64748b;">Order #ORD-${payment.orderId}</small>
+                </td>
+                <td>
+                    ${escapeHtml(payment.buyerName || 'Buyer')}
+                    <br><small style="color:#64748b;">${escapeHtml(payment.buyerPhone || 'N/A')}</small>
+                </td>
+                <td><strong style="color:#16a34a;">₹${parseFloat(payment.amount).toFixed(2)}</strong></td>
+                <td><span class="badge" style="background:#f1f5f9; color:#334155; font-size:0.75rem;">${payment.paymentMethod}</span></td>
+                <td><code class="txn-badge">${payment.transactionReference || '--'}</code></td>
+                <td><small>${dateStr}</small></td>
+                <td>${getPaymentStatusPill(payment.paymentStatus)}</td>
+                <td>
+                    <button type="button" class="btn-action btn-assess" onclick="openPaymentDetailsModal(${payment.paymentId}, 'FARMER')">
+                        👁️ Receipt
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Buyer Payment Operations ---
+
+async function loadBuyerPayments() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(BUYER_PAYMENTS_ENDPOINT, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            buyerPayments = result.data || [];
+            updateBuyerPaymentCounts();
+            renderBuyerPaymentsTable();
+        }
+    } catch (err) {
+        console.error('Failed to load buyer payments:', err);
+    }
+}
+
+function updateBuyerPaymentCounts() {
+    const completed = buyerPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID').length;
+    const pending = buyerPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING').length;
+    const refunded = buyerPayments.filter(p => p.paymentStatus === 'REFUNDED').length;
+
+    const elAll = document.getElementById('buyer-payment-count-all');
+    const elCompleted = document.getElementById('buyer-payment-count-completed');
+    const elPending = document.getElementById('buyer-payment-count-pending');
+    const elRefunded = document.getElementById('buyer-payment-count-refunded');
+
+    if (elAll) elAll.textContent = buyerPayments.length;
+    if (elCompleted) elCompleted.textContent = completed;
+    if (elPending) elPending.textContent = pending;
+    if (elRefunded) elRefunded.textContent = refunded;
+}
+
+function renderBuyerPaymentsTable() {
+    const tbody = document.getElementById('buyer-payments-tbody');
+    if (!tbody) return;
+
+    let filtered = buyerPayments;
+    if (activeBuyerPaymentFilter === 'COMPLETED') {
+        filtered = buyerPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID');
+    } else if (activeBuyerPaymentFilter === 'PENDING') {
+        filtered = buyerPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING');
+    } else if (activeBuyerPaymentFilter === 'REFUNDED') {
+        filtered = buyerPayments.filter(p => p.paymentStatus === 'REFUNDED');
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No payments found matching "${activeBuyerPaymentFilter}".</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(payment => {
+        const dateStr = payment.paymentDate ? formatOrderDateTime(payment.paymentDate) : '--';
+        return `
+            <tr>
+                <td><strong>#PAY-${payment.paymentId}</strong></td>
+                <td>
+                    <strong>${escapeHtml(payment.cropName || 'Crop')}</strong>
+                    <br><small style="color:#64748b;">Order #ORD-${payment.orderId}</small>
+                </td>
+                <td>
+                    ${escapeHtml(payment.farmerName || 'Farmer')}
+                    <br><small style="color:#64748b;">${escapeHtml(payment.farmerPhone || 'N/A')}</small>
+                </td>
+                <td><strong style="color:#16a34a;">₹${parseFloat(payment.amount).toFixed(2)}</strong></td>
+                <td><span class="badge" style="background:#f1f5f9; color:#334155; font-size:0.75rem;">${payment.paymentMethod}</span></td>
+                <td><code class="txn-badge">${payment.transactionReference || '--'}</code></td>
+                <td><small>${dateStr}</small></td>
+                <td>${getPaymentStatusPill(payment.paymentStatus)}</td>
+                <td>
+                    <button type="button" class="btn-action btn-assess" onclick="openPaymentDetailsModal(${payment.paymentId}, 'BUYER')">
+                        👁️ Details
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Admin Payment Operations ---
+
+async function loadAdminPayments() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(ADMIN_PAYMENTS_ENDPOINT, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (response.ok) {
+            const result = await response.json();
+            adminPayments = result.data || [];
+            updateAdminPaymentCounts();
+            renderAdminPaymentsTable();
+        }
+    } catch (err) {
+        console.error('Failed to load admin payments:', err);
+    }
+}
+
+function updateAdminPaymentCounts() {
+    const completed = adminPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID').length;
+    const pending = adminPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING').length;
+    const refunded = adminPayments.filter(p => p.paymentStatus === 'REFUNDED').length;
+
+    const elAll = document.getElementById('admin-payment-count-all');
+    const elCompleted = document.getElementById('admin-payment-count-completed');
+    const elPending = document.getElementById('admin-payment-count-pending');
+    const elRefunded = document.getElementById('admin-payment-count-refunded');
+
+    if (elAll) elAll.textContent = adminPayments.length;
+    if (elCompleted) elCompleted.textContent = completed;
+    if (elPending) elPending.textContent = pending;
+    if (elRefunded) elRefunded.textContent = refunded;
+}
+
+function renderAdminPaymentsTable() {
+    const tbody = document.getElementById('admin-payments-tbody');
+    if (!tbody) return;
+
+    let filtered = adminPayments;
+    if (activeAdminPaymentFilter === 'COMPLETED') {
+        filtered = adminPayments.filter(p => p.paymentStatus === 'COMPLETED' || p.paymentStatus === 'PAID');
+    } else if (activeAdminPaymentFilter === 'PENDING') {
+        filtered = adminPayments.filter(p => p.paymentStatus === 'PENDING' || p.paymentStatus === 'PROCESSING');
+    } else if (activeAdminPaymentFilter === 'REFUNDED') {
+        filtered = adminPayments.filter(p => p.paymentStatus === 'REFUNDED');
+    }
+
+    if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center py-4 text-muted">No payments found matching "${activeAdminPaymentFilter}".</td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = filtered.map(payment => {
+        const dateStr = payment.paymentDate ? formatOrderDateTime(payment.paymentDate) : '--';
+        return `
+            <tr>
+                <td><strong>#PAY-${payment.paymentId}</strong></td>
+                <td>
+                    <strong>${escapeHtml(payment.cropName || 'Crop')}</strong>
+                    <br><small style="color:#64748b;">Order #ORD-${payment.orderId}</small>
+                </td>
+                <td>${escapeHtml(payment.buyerName || 'Buyer')}</td>
+                <td>${escapeHtml(payment.farmerName || 'Farmer')}</td>
+                <td><strong style="color:#16a34a;">₹${parseFloat(payment.amount).toFixed(2)}</strong></td>
+                <td><span class="badge" style="background:#f1f5f9; color:#334155; font-size:0.75rem;">${payment.paymentMethod}</span></td>
+                <td><code class="txn-badge">${payment.transactionReference || '--'}</code></td>
+                <td><small>${dateStr}</small></td>
+                <td>${getPaymentStatusPill(payment.paymentStatus)}</td>
+                <td>
+                    <div class="table-actions">
+                        <button type="button" class="btn-action btn-assess" onclick="openPaymentDetailsModal(${payment.paymentId}, 'ADMIN')">
+                            👁️
+                        </button>
+                        <button type="button" class="btn-action" style="background:#f59e0b; color:#fff;" onclick="openUpdatePaymentStatusModal(${payment.paymentId}, '${payment.paymentStatus}')">
+                            ⚙️ Status
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// --- Make Payment Modal (Buyer) ---
+
+async function openMakePaymentModal(orderId, totalAmount, cropName) {
+    const token = getAuthToken();
+    if (!token) return;
+
+    document.getElementById('payment-order-id').value = orderId;
+    const alertEl = document.getElementById('make-payment-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    try {
+        const res = await fetch(`${BUYER_PAYMENTS_ENDPOINT}/order/${orderId}`, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (res.ok) {
+            const json = await res.json();
+            const summary = json.data;
+            document.getElementById('payment-order-total-val').textContent = `₹${parseFloat(summary.orderTotal).toFixed(2)}`;
+            document.getElementById('payment-already-paid-val').textContent = `₹${parseFloat(summary.totalPaid).toFixed(2)}`;
+
+            const remEl = document.getElementById('payment-remaining-bal-val');
+            remEl.textContent = `₹${parseFloat(summary.remainingBalance).toFixed(2)}`;
+            if (summary.remainingBalance <= 0) {
+                remEl.className = 'payment-stat-value balance-zero';
+            } else {
+                remEl.className = 'payment-stat-value balance-due';
+            }
+
+            const amountInput = document.getElementById('payment-amount-input');
+            amountInput.value = summary.remainingBalance > 0 ? summary.remainingBalance.toFixed(2) : '0.00';
+            amountInput.max = summary.remainingBalance > 0 ? summary.remainingBalance : '0';
+        } else {
+            document.getElementById('payment-order-total-val').textContent = `₹${parseFloat(totalAmount).toFixed(2)}`;
+            document.getElementById('payment-already-paid-val').textContent = `₹0.00`;
+            document.getElementById('payment-remaining-bal-val').textContent = `₹${parseFloat(totalAmount).toFixed(2)}`;
+            document.getElementById('payment-amount-input').value = parseFloat(totalAmount).toFixed(2);
+        }
+    } catch (err) {
+        console.error('Failed to load order payment summary:', err);
+    }
+
+    const modal = document.getElementById('make-payment-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeMakePaymentModal() {
+    const modal = document.getElementById('make-payment-modal');
+    if (modal) modal.classList.add('hidden');
+    const form = document.getElementById('make-payment-form');
+    if (form) form.reset();
+}
+
+async function handleMakePaymentSubmit(event) {
+    event.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const orderId = parseInt(document.getElementById('payment-order-id').value, 10);
+    const amountVal = parseFloat(document.getElementById('payment-amount-input').value);
+    const method = document.getElementById('payment-method-select').value;
+    const txnRef = document.getElementById('payment-txn-ref-input').value.trim();
+    const remarks = document.getElementById('payment-remarks-input').value.trim();
+
+    const alertEl = document.getElementById('make-payment-alert');
+    if (isNaN(amountVal) || amountVal <= 0) {
+        if (alertEl) {
+            alertEl.textContent = 'Please enter a valid payment amount greater than zero.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+        return;
+    }
+
+    const spinner = document.getElementById('make-payment-spinner');
+    const btnText = document.getElementById('make-payment-text');
+    if (spinner) spinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = 'Processing Payment...';
+
+    const payload = {
+        orderId: orderId,
+        amount: amountVal,
+        paymentMethod: method,
+        transactionReference: txnRef || null,
+        remarks: remarks || null
+    };
+
+    try {
+        const response = await fetch(BUYER_PAYMENTS_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            closeMakePaymentModal();
+            await loadBuyerPayments();
+            await loadBuyerOrders();
+            await loadBuyerDeliveries();
+            showBuyerPaymentAlert(`Payment of ₹${amountVal.toFixed(2)} recorded successfully!`, 'success');
+        } else {
+            if (alertEl) {
+                alertEl.textContent = result.message || 'Payment submission failed.';
+                alertEl.className = 'auth-alert auth-alert-error';
+                alertEl.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Error submitting payment:', err);
+        if (alertEl) {
+            alertEl.textContent = 'Network error while recording payment.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Submit Payment';
+    }
+}
+
+// --- Payment Details Modal ---
+
+async function openPaymentDetailsModal(paymentId, role = 'BUYER') {
+    const token = getAuthToken();
+    if (!token) return;
+
+    let endpoint = `${BUYER_PAYMENTS_ENDPOINT}/${paymentId}`;
+    if (role === 'FARMER') endpoint = `${FARMER_PAYMENTS_ENDPOINT}/${paymentId}`;
+    else if (role === 'ADMIN') endpoint = `${ADMIN_PAYMENTS_ENDPOINT}/${paymentId}`;
+
+    try {
+        const res = await fetch(endpoint, {
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+        if (res.ok) {
+            const json = await res.json();
+            const p = json.data;
+
+            document.getElementById('pd-payment-id').textContent = `#PAY-${p.paymentId}`;
+            document.getElementById('pd-order-id').textContent = p.orderId;
+            document.getElementById('pd-crop-details').textContent = `${p.cropName || 'Crop'} (${p.orderQuantity || '--'} kg)`;
+            document.getElementById('pd-farmer-name').textContent = `${p.farmerName || 'Farmer'} (${p.farmerPhone || 'N/A'})`;
+            document.getElementById('pd-buyer-name').textContent = `${p.buyerName || 'Buyer'} (${p.buyerPhone || 'N/A'})`;
+            document.getElementById('pd-amount').textContent = `₹${parseFloat(p.amount).toFixed(2)}`;
+            document.getElementById('pd-method').textContent = p.paymentMethod;
+            document.getElementById('pd-txn-ref').textContent = p.transactionReference || '--';
+            document.getElementById('pd-date').textContent = p.paymentDate ? formatOrderDateTime(p.paymentDate) : '--';
+            document.getElementById('pd-remarks').textContent = p.remarks || 'None';
+            document.getElementById('pd-status-badge').innerHTML = getPaymentStatusPill(p.paymentStatus);
+
+            const modal = document.getElementById('payment-details-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+    } catch (err) {
+        console.error('Failed to load payment details:', err);
+    }
+}
+
+function closePaymentDetailsModal() {
+    const modal = document.getElementById('payment-details-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+// --- Admin Update Payment Status Modal ---
+
+function openUpdatePaymentStatusModal(paymentId, currentStatus) {
+    document.getElementById('admin-update-payment-id').value = paymentId;
+    document.getElementById('admin-ctx-payment-ref').textContent = `Payment #PAY-${paymentId}`;
+    document.getElementById('admin-ctx-payment-status').textContent = currentStatus;
+
+    const select = document.getElementById('admin-payment-target-status');
+    if (select) {
+        select.value = currentStatus === 'COMPLETED' ? 'REFUNDED' : 'COMPLETED';
+    }
+
+    const alertEl = document.getElementById('admin-payment-status-alert');
+    if (alertEl) alertEl.classList.add('hidden');
+
+    const modal = document.getElementById('admin-payment-status-modal');
+    if (modal) modal.classList.remove('hidden');
+}
+
+function closeUpdatePaymentStatusModal() {
+    const modal = document.getElementById('admin-payment-status-modal');
+    if (modal) modal.classList.add('hidden');
+    const form = document.getElementById('admin-payment-status-form');
+    if (form) form.reset();
+}
+
+async function handleUpdatePaymentStatusSubmit(event) {
+    event.preventDefault();
+    const token = getAuthToken();
+    if (!token) return;
+
+    const paymentId = parseInt(document.getElementById('admin-update-payment-id').value, 10);
+    const targetStatus = document.getElementById('admin-payment-target-status').value;
+    const remarks = document.getElementById('admin-payment-remarks-input').value.trim();
+
+    const spinner = document.getElementById('admin-payment-status-spinner');
+    const btnText = document.getElementById('admin-payment-status-text');
+    if (spinner) spinner.classList.remove('hidden');
+    if (btnText) btnText.textContent = 'Saving...';
+
+    const alertEl = document.getElementById('admin-payment-status-alert');
+
+    try {
+        const response = await fetch(`${ADMIN_PAYMENTS_ENDPOINT}/${paymentId}/status?status=${targetStatus}`, {
+            method: 'PATCH',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                paymentStatus: targetStatus,
+                remarks: remarks || null
+            })
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            closeUpdatePaymentStatusModal();
+            await loadAdminPayments();
+            await loadAdminOrders();
+            showAdminPaymentAlert(`Payment #PAY-${paymentId} status transitioned to ${targetStatus}.`, 'success');
+        } else {
+            if (alertEl) {
+                alertEl.textContent = result.message || 'Failed to update payment status.';
+                alertEl.className = 'auth-alert auth-alert-error';
+                alertEl.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error('Failed to update payment status:', err);
+        if (alertEl) {
+            alertEl.textContent = 'Network error while updating payment status.';
+            alertEl.className = 'auth-alert auth-alert-error';
+            alertEl.classList.remove('hidden');
+        }
+    } finally {
+        if (spinner) spinner.classList.add('hidden');
+        if (btnText) btnText.textContent = 'Save Status';
+    }
+}
+
 // -------------------------------------------------------------------
-// 6. Phase 8 DOM Event Listeners & Binding
+// 6. Phase 8 & Phase 9 DOM Event Listeners & Binding
 // -------------------------------------------------------------------
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -3436,6 +4763,166 @@ document.addEventListener('DOMContentLoaded', () => {
             tab.classList.add('active');
             activeAdminOrderFilter = tab.getAttribute('data-filter') || 'ALL';
             renderAdminOrdersTable();
+        });
+    });
+
+    // 9. Phase 9: Create Delivery Modal Handlers
+    const createDeliveryForm = document.getElementById('create-delivery-form');
+    if (createDeliveryForm) createDeliveryForm.addEventListener('submit', handleCreateDeliverySubmit);
+
+    const closeCreateDeliveryModalBtn = document.getElementById('close-create-delivery-modal-btn');
+    const dismissCreateDeliveryBtn = document.getElementById('dismiss-create-delivery-btn');
+    if (closeCreateDeliveryModalBtn) closeCreateDeliveryModalBtn.addEventListener('click', closeCreateDeliveryModal);
+    if (dismissCreateDeliveryBtn) dismissCreateDeliveryBtn.addEventListener('click', closeCreateDeliveryModal);
+
+    // 10. Phase 9: Ship Delivery Modal Handlers
+    const shipDeliveryForm = document.getElementById('ship-delivery-form');
+    if (shipDeliveryForm) shipDeliveryForm.addEventListener('submit', handleShipDeliverySubmit);
+
+    const closeShipDeliveryModalBtn = document.getElementById('close-ship-delivery-modal-btn');
+    const dismissShipDeliveryBtn = document.getElementById('dismiss-ship-delivery-btn');
+    if (closeShipDeliveryModalBtn) closeShipDeliveryModalBtn.addEventListener('click', closeShipDeliveryModal);
+    if (dismissShipDeliveryBtn) dismissShipDeliveryBtn.addEventListener('click', closeShipDeliveryModal);
+
+    // 11. Phase 9: Delivery Details Modal Handlers
+    const closeDeliveryDetailsModalBtn = document.getElementById('close-delivery-details-modal-btn');
+    const closeDeliveryDetailsBtn = document.getElementById('close-delivery-details-btn');
+    if (closeDeliveryDetailsModalBtn) closeDeliveryDetailsModalBtn.addEventListener('click', closeDeliveryDetailsModal);
+    if (closeDeliveryDetailsBtn) closeDeliveryDetailsBtn.addEventListener('click', closeDeliveryDetailsModal);
+
+    // 12. Phase 9: Refresh Delivery Buttons
+    const refreshFarmerDeliveriesBtn = document.getElementById('refresh-farmer-deliveries-btn');
+    if (refreshFarmerDeliveriesBtn) {
+        refreshFarmerDeliveriesBtn.addEventListener('click', async () => {
+            await loadFarmerDeliveries();
+            showFarmerDeliveryAlert('Outgoing deliveries refreshed.', 'success');
+        });
+    }
+
+    const refreshBuyerDeliveriesBtn = document.getElementById('refresh-buyer-deliveries-btn');
+    if (refreshBuyerDeliveriesBtn) {
+        refreshBuyerDeliveriesBtn.addEventListener('click', async () => {
+            await loadBuyerDeliveries();
+            showBuyerDeliveryAlert('Inbound deliveries refreshed.', 'success');
+        });
+    }
+
+    const refreshAdminDeliveriesBtn = document.getElementById('refresh-admin-deliveries-btn');
+    if (refreshAdminDeliveriesBtn) {
+        refreshAdminDeliveriesBtn.addEventListener('click', async () => {
+            await loadAdminDeliveries();
+            const el = document.getElementById('admin-deliveries-alert');
+            if (el) {
+                el.textContent = 'Deliveries refreshed.';
+                el.className = 'auth-alert auth-alert-success';
+                el.classList.remove('hidden');
+                setTimeout(() => el.classList.add('hidden'), 4000);
+            }
+        });
+    }
+
+    // 13. Phase 9: Delivery Filter Tabs
+    document.querySelectorAll('.farmer-delivery-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.farmer-delivery-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeFarmerDeliveryFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderFarmerDeliveriesTable();
+        });
+    });
+
+    document.querySelectorAll('.buyer-delivery-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.buyer-delivery-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeBuyerDeliveryFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderBuyerDeliveriesTable();
+        });
+    });
+
+    document.querySelectorAll('.admin-delivery-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.admin-delivery-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeAdminDeliveryFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderAdminDeliveriesTable();
+        });
+    });
+
+    // 14. Phase 10: Make Payment Modal Handlers
+    const makePaymentForm = document.getElementById('make-payment-form');
+    if (makePaymentForm) makePaymentForm.addEventListener('submit', handleMakePaymentSubmit);
+
+    const closeMakePaymentModalBtn = document.getElementById('close-make-payment-modal-btn');
+    const dismissMakePaymentBtn = document.getElementById('dismiss-make-payment-btn');
+    if (closeMakePaymentModalBtn) closeMakePaymentModalBtn.addEventListener('click', closeMakePaymentModal);
+    if (dismissMakePaymentBtn) dismissMakePaymentBtn.addEventListener('click', closeMakePaymentModal);
+
+    // 15. Phase 10: Payment Details Modal Handlers
+    const closePaymentDetailsModalBtn = document.getElementById('close-payment-details-modal-btn');
+    const closePaymentDetailsBtn = document.getElementById('close-payment-details-btn');
+    if (closePaymentDetailsModalBtn) closePaymentDetailsModalBtn.addEventListener('click', closePaymentDetailsModal);
+    if (closePaymentDetailsBtn) closePaymentDetailsBtn.addEventListener('click', closePaymentDetailsModal);
+
+    // 16. Phase 10: Admin Update Payment Status Modal Handlers
+    const adminPaymentStatusForm = document.getElementById('admin-payment-status-form');
+    if (adminPaymentStatusForm) adminPaymentStatusForm.addEventListener('submit', handleUpdatePaymentStatusSubmit);
+
+    const closeAdminPaymentStatusModalBtn = document.getElementById('close-admin-payment-status-modal-btn');
+    const dismissAdminPaymentStatusBtn = document.getElementById('dismiss-admin-payment-status-btn');
+    if (closeAdminPaymentStatusModalBtn) closeAdminPaymentStatusModalBtn.addEventListener('click', closeUpdatePaymentStatusModal);
+    if (dismissAdminPaymentStatusBtn) dismissAdminPaymentStatusBtn.addEventListener('click', closeUpdatePaymentStatusModal);
+
+    // 17. Phase 10: Refresh Payment Buttons
+    const refreshFarmerPaymentsBtn = document.getElementById('refresh-farmer-payments-btn');
+    if (refreshFarmerPaymentsBtn) {
+        refreshFarmerPaymentsBtn.addEventListener('click', async () => {
+            await loadFarmerPayments();
+            showFarmerPaymentAlert('Received payments list refreshed.', 'success');
+        });
+    }
+
+    const refreshBuyerPaymentsBtn = document.getElementById('refresh-buyer-payments-btn');
+    if (refreshBuyerPaymentsBtn) {
+        refreshBuyerPaymentsBtn.addEventListener('click', async () => {
+            await loadBuyerPayments();
+            showBuyerPaymentAlert('Payment history refreshed.', 'success');
+        });
+    }
+
+    const refreshAdminPaymentsBtn = document.getElementById('refresh-admin-payments-btn');
+    if (refreshAdminPaymentsBtn) {
+        refreshAdminPaymentsBtn.addEventListener('click', async () => {
+            await loadAdminPayments();
+            showAdminPaymentAlert('Global payments refreshed.', 'success');
+        });
+    }
+
+    // 18. Phase 10: Payment Filter Tabs
+    document.querySelectorAll('.farmer-payment-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.farmer-payment-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeFarmerPaymentFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderFarmerPaymentsTable();
+        });
+    });
+
+    document.querySelectorAll('.buyer-payment-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.buyer-payment-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeBuyerPaymentFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderBuyerPaymentsTable();
+        });
+    });
+
+    document.querySelectorAll('.admin-payment-filter-tab').forEach(tab => {
+        tab.addEventListener('click', () => {
+            document.querySelectorAll('.admin-payment-filter-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeAdminPaymentFilter = tab.getAttribute('data-filter') || 'ALL';
+            renderAdminPaymentsTable();
         });
     });
 });

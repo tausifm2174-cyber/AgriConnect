@@ -2,11 +2,11 @@ package com.agriconnect.entity;
 
 /**
  * Lifecycle status of an Order in the AgriConnect marketplace.
- * Phase 8 introduces the core lifecycle:
- * PENDING -> ACCEPTED
- * PENDING -> REJECTED
- * PENDING -> CANCELLED
- * Preserves legacy statuses (CONFIRMED, SHIPPED, DELIVERED) for subsequent fulfillment phases.
+ * Phase 8 introduced the core decision lifecycle:
+ * PENDING -> ACCEPTED / REJECTED / CANCELLED
+ *
+ * Phase 9 integrates complete Delivery & Fulfillment management:
+ * ACCEPTED -> CONFIRMED -> SHIPPED -> DELIVERED
  */
 public enum OrderStatus {
     PENDING,
@@ -19,21 +19,28 @@ public enum OrderStatus {
 
     /**
      * Determines whether this status can transition to the given target status.
-     * In Phase 8:
-     * - Only PENDING orders can transition to ACCEPTED, REJECTED, or CANCELLED.
-     * - ACCEPTED, REJECTED, and CANCELLED are terminal states for Phase 8.
+     * Enforces valid linear order fulfillment progression:
+     * - PENDING -> ACCEPTED, REJECTED, CANCELLED
+     * - ACCEPTED -> CONFIRMED, SHIPPED, CANCELLED
+     * - CONFIRMED -> SHIPPED, CANCELLED
+     * - SHIPPED -> DELIVERED
+     * - Backward transitions (e.g. DELIVERED -> SHIPPED, SHIPPED -> ACCEPTED) are rejected.
+     * - Terminal states (DELIVERED, REJECTED, CANCELLED) cannot transition further.
      *
      * @param targetStatus Proposed new status
      * @return true if the transition is permitted, false otherwise
      */
     public boolean canTransitionTo(OrderStatus targetStatus) {
-        if (this == targetStatus) {
+        if (targetStatus == null || this == targetStatus) {
             return false;
         }
-        if (this == PENDING) {
-            return targetStatus == ACCEPTED || targetStatus == REJECTED || targetStatus == CANCELLED;
-        }
-        // Terminal or future fulfillment states cannot transition back to Phase 8 decision states
-        return false;
+
+        return switch (this) {
+            case PENDING -> targetStatus == ACCEPTED || targetStatus == REJECTED || targetStatus == CANCELLED;
+            case ACCEPTED -> targetStatus == CONFIRMED || targetStatus == SHIPPED || targetStatus == CANCELLED;
+            case CONFIRMED -> targetStatus == SHIPPED || targetStatus == CANCELLED;
+            case SHIPPED -> targetStatus == DELIVERED;
+            case DELIVERED, REJECTED, CANCELLED -> false;
+        };
     }
 }

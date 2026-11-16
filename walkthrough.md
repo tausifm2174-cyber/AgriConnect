@@ -611,3 +611,200 @@ Output:
    - Filter by status tabs (`PENDING`, `ACCEPTED`, `REJECTED`, `CANCELLED`).
    - Click `[👁️ Details]` to view comprehensive contract terms, timestamps, and cancellation notes.
 
+---
+
+# AgriConnect — Phase 9: Delivery Management Walkthrough
+
+This section outlines the implementation, testing, API specifications, and frontend integration of **Phase 9: Delivery Management**.
+
+---
+
+## 1. Summary of Accomplishments
+
+- **Relational Schema Migration (`07_phase9_delivery_management.sql`)**:
+  - Expanded `deliveries.delivery_status` ENUM to include `PENDING`, `DISPATCHED`, `IN_TRANSIT`, `SHIPPED`, `DELIVERED`, `CANCELLED`, `FAILED`.
+  - Added `remarks VARCHAR(255)`, `estimated_delivery_date DATETIME`, and `updated_at TIMESTAMP` with automatic `CURRENT_TIMESTAMP ON UPDATE`.
+  - Added composite index `idx_deliveries_order_status` on `(order_id, delivery_status)`.
+  - Preserved existing 1:1 `order_id INT NOT NULL UNIQUE` constraint.
+- **Bi-Directional Order & Delivery Synchronization**:
+  - Maintained atomic `@Transactional` consistency between `Order` and `Delivery`.
+  - Initial delivery scheduling transitions accepted orders to `CONFIRMED`.
+  - Shipment dispatch (`/ship`) transitions both delivery and order to `SHIPPED`.
+  - Delivery completion (`/deliver` by farmer or `/confirm-received` by buyer) transitions both delivery and order to `DELIVERED`.
+  - Enforced strict transition validation preventing invalid state reversions (`DELIVERED -> SHIPPED`, etc.).
+  - Duplicate delivery prevention: only 1 delivery per order is allowed.
+- **Strict Role-Based Security & IDOR Prevention**:
+  - Verified user identity via JWT token extraction.
+  - Farmers can only view and manage shipments for their own produce lots.
+  - Buyers can only view and manage inbound deliveries for their own orders.
+  - Cross-user access blocked with HTTP 403 Forbidden; unauthenticated access blocked with HTTP 401 Unauthorized.
+- **REST Endpoints**:
+  - **Buyer**:
+    - `POST /api/buyer/deliveries`
+    - `GET /api/buyer/deliveries`
+    - `GET /api/buyer/deliveries/{id}`
+    - `PATCH /api/buyer/deliveries/{id}/confirm-received`
+  - **Farmer**:
+    - `POST /api/farmer/deliveries`
+    - `GET /api/farmer/deliveries`
+    - `GET /api/farmer/deliveries/{id}`
+    - `PATCH /api/farmer/deliveries/{id}/ship`
+    - `PATCH /api/farmer/deliveries/{id}/deliver`
+  - **Admin**:
+    - `GET /api/admin/deliveries`
+    - `GET /api/admin/deliveries/{id}`
+    - `PATCH /api/admin/deliveries/{id}/status`
+- **Frontend Dashboard Enhancements**:
+  - Farmer Dashboard: "Outgoing Deliveries & Logistics" card with status filtering, Ship dispatch modal, and delivery details modal.
+  - Buyer Dashboard: "Inbound Deliveries & Tracking" card with status filtering, Confirm Receipt button, and tracking modal.
+  - Admin Dashboard: "Global Delivery & Logistics Monitoring" card with global oversight.
+
+---
+
+## 2. Test Execution Results
+
+Executed automated unit test suite:
+```bash
+cmd.exe /c "cd /d .../backend && mvnw.cmd test -Dtest=DeliveryServiceTest,DeliveryControllerTest,MatchingServiceTest,QualityAssessmentServiceTest,QualityAssessmentCalculationTest,HarvestServiceTest,AuthServiceTest,OrderServiceTest"
+```
+
+```text
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 109, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+```
+
+### Tests Summary:
+1. **`DeliveryServiceTest` (18 Unit Tests)**:
+   - `testCreateDelivery_Success`: Creates delivery for ACCEPTED order, sets order status to CONFIRMED.
+   - `testCreateDelivery_NonExistentOrder_ThrowsNotFound`: Rejects nonexistent order ID with 404.
+   - `testCreateDelivery_OrderNotAccepted_ThrowsBadRequest`: Rejects delivery creation for unaccepted order.
+   - `testCreateDelivery_DuplicateDelivery_ThrowsBadRequest`: Rejects duplicate delivery for the same order.
+   - `testCreateDelivery_MissingAddress_ThrowsBadRequest`: Rejects missing/empty delivery address.
+   - `testCreateDelivery_BuyerOwnership_Success`: Buyer creates delivery for their own order.
+   - `testCreateDelivery_CrossBuyer_ThrowsForbidden`: Buyer attempting delivery for another buyer's order blocked with 403.
+   - `testCreateDelivery_CrossFarmer_ThrowsForbidden`: Farmer attempting delivery for another farmer's harvest blocked with 403.
+   - `testFarmerShipDelivery_Success`: Dispatches delivery and synchronizes order status to SHIPPED.
+   - `testFarmerShipDelivery_InvalidStatusTransition_ThrowsBadRequest`: Rejects shipment on DELIVERED delivery.
+   - `testFarmerShipDelivery_CrossFarmer_ThrowsForbidden`: Cross-farmer shipment modification blocked with 403.
+   - `testFarmerMarkDelivered_Success`: Completes delivery and synchronizes order status to DELIVERED.
+   - `testBuyerConfirmReceived_Success`: Buyer confirms receipt and synchronizes order status to DELIVERED.
+   - `testBuyerConfirmReceived_CrossBuyer_ThrowsForbidden`: Cross-buyer receipt confirmation blocked with 403.
+   - `testBuyerGetDeliveryById_CrossBuyer_ThrowsForbidden`: Cross-buyer delivery retrieval blocked with 403.
+   - `testFarmerGetDeliveryById_CrossFarmer_ThrowsForbidden`: Cross-farmer delivery retrieval blocked with 403.
+   - `testAdminGetDeliveries_Success`: Admin views all platform deliveries.
+   - `testAdminUpdateDeliveryStatus_Success`: Admin updates status and remarks.
+2. **`DeliveryControllerTest` (8 WebMvc Tests)**:
+   - `testBuyerCreateDelivery_Success`: POST /api/buyer/deliveries returns 201 Created.
+   - `testBuyerGetDeliveries_Success`: GET /api/buyer/deliveries returns 200 OK.
+   - `testBuyerGetDeliveryById_Success`: GET /api/buyer/deliveries/{id} returns 200 OK.
+   - `testBuyerConfirmReceived_Success`: PATCH /api/buyer/deliveries/{id}/confirm-received returns 200 OK.
+   - `testFarmerGetDeliveries_Success`: GET /api/farmer/deliveries returns 200 OK.
+   - `testFarmerShipDelivery_Success`: PATCH /api/farmer/deliveries/{id}/ship returns 200 OK.
+   - `testFarmerDeliverDelivery_Success`: PATCH /api/farmer/deliveries/{id}/deliver returns 200 OK.
+   - `testAdminGetDeliveries_Success`: GET /api/admin/deliveries returns 200 OK.
+3. **Frontend Syntax Validation**:
+   - `node -c frontend/js/app.js`: Clean exit with code 0 (zero syntax errors).
+
+---
+
+## 3. How to Test Phase 9 in Browser
+
+1. Open `frontend/index.html` in browser.
+2. **Step 1: Order Acceptance (Farmer)**:
+   - Sign in as Farmer: `rajesh.patel@kisan.in` / `Password@123`.
+   - In "Incoming Buyer Orders", find an order and click `[✅ Accept]`.
+3. **Step 2: Schedule Delivery (Farmer or Buyer)**:
+   - On the accepted order, click `[🚚 Delivery]`.
+   - Enter destination shipping address, carrier/vehicle info, tracking code, and remarks.
+   - Click `Create Delivery Record`.
+   - Verify order status updates to `CONFIRMED` and delivery appears in "Outgoing Deliveries & Logistics" with `PENDING` status.
+4. **Step 3: Dispatch Shipment (Farmer)**:
+   - In "Outgoing Deliveries & Logistics", click `[🚚 Ship]` on the pending delivery.
+   - Enter vehicle registration number (e.g. `MH-12-AB-5678`) and waybill code (e.g. `AGC-EXP-9001`).
+   - Click `Confirm Dispatch (Ship)`.
+   - Notice both the delivery and underlying purchase order instantly transition to `SHIPPED`.
+5. **Step 4: Receive & Confirm Delivery (Buyer)**:
+   - Sign in as Buyer: `vikas.gupta@freshmarts.com` / `Password@123`.
+   - Go to "Inbound Deliveries & Tracking".
+   - View live tracking details, vehicle info, and dispatch timestamps.
+   - Click `[✅ Confirm Receipt]`.
+   - Observe both delivery and order status transition to `DELIVERED`.
+6. **Step 5: Admin Monitoring**:
+   - Sign in as Admin: `admin@agriconnect.com` / `Admin@123`.
+   - Open "Global Delivery & Logistics Monitoring" to review platform-wide shipments, carriers, and fulfillment timelines.
+
+
+
+
+---
+
+# AgriConnect — Phase 10: Payment Management Walkthrough
+
+This section outlines the implementation, testing, API specifications, and frontend integration of **Phase 10: Payment Management**.
+
+---
+
+## 1. Summary of Accomplishments
+
+- **Relational Schema Migration (`08_phase10_payment_management.sql`)**:
+  - Expanded `payments.payment_status` ENUM to include `PENDING`, `PROCESSING`, `COMPLETED`, `PAID`, `FAILED`, `CANCELLED`, `REFUNDED`.
+  - Added `remarks VARCHAR(255)`, `created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP`, and `updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`.
+  - Added composite indexes:
+    - `idx_payments_order_status` on `(order_id, payment_status)`
+    - `idx_payments_status_date` on `(payment_status, payment_date)`
+  - Preserved foreign key integrity with `orders(order_id)`.
+- **Payment Lifecycle & Financial State Machine**:
+  - Enforced valid linear and branching state progressions:
+    - `PENDING` -> `PROCESSING`, `COMPLETED`, `PAID`, `CANCELLED`, `FAILED`
+    - `PROCESSING` -> `COMPLETED`, `PAID`, `FAILED`, `CANCELLED`
+    - `COMPLETED`, `PAID` -> `REFUNDED`
+    - `FAILED`, `CANCELLED`, `REFUNDED` are strictly terminal.
+  - Backward reversions (e.g. `COMPLETED -> PENDING`, `FAILED -> COMPLETED`) rejected with HTTP 400 Bad Request.
+- **Financial Balance & Overpayment Prevention**:
+  - Aggregate queries dynamically compute total settled amount per order.
+  - Overpayment prevention rejects amounts exceeding the remaining order balance with HTTP 400.
+  - Double payment prevention rejects payments against 100% settled orders.
+- **Multi-Tenant Ownership & RBAC Security**:
+  - Buyers own payment creation and viewing for their purchase contracts.
+  - Farmers access payment audit receipts exclusively for their sold produce orders.
+  - Administrators monitor all marketplace transactions, audit records, and manage settlement state / refunds.
+  - Strict IDOR defenses returning HTTP 403 Forbidden on unauthorized cross-tenant access.
+- **Bi-Directional Order Synchronization**:
+  - When payment settles on an `ACCEPTED` order, the order is automatically synchronized to `CONFIRMED`.
+  - Payments are blocked on `CANCELLED`, `REJECTED`, or unaccepted (`PENDING`) orders.
+
+---
+
+## 2. API Endpoints
+
+### Buyer Endpoints (`ROLE_BUYER`)
+- `POST /api/buyer/payments`: Submit/record a payment against an order.
+- `GET /api/buyer/payments`: Retrieve all payments made by authenticated buyer.
+- `GET /api/buyer/payments/{paymentId}`: Retrieve single payment details (IDOR-protected).
+- `GET /api/buyer/payments/order/{orderId}`: Get financial balance and settlement summary for order.
+
+### Farmer Endpoints (`ROLE_FARMER`)
+- `GET /api/farmer/payments`: Retrieve all received payment records for farmer's produce.
+- `GET /api/farmer/payments/{paymentId}`: Retrieve single payment details (IDOR-protected).
+- `GET /api/farmer/payments/order/{orderId}`: Get order settlement summary.
+
+### Admin Endpoints (`ROLE_ADMIN`)
+- `GET /api/admin/payments`: Retrieve all payments across the marketplace with optional `status` and `method` filters.
+- `GET /api/admin/payments/{paymentId}`: Retrieve payment audit record.
+- `PATCH /api/admin/payments/{paymentId}/status`: Update payment status (e.g., approve refund).
+- `GET /api/admin/payments/order/{orderId}`: Get order settlement summary.
+
+---
+
+## 3. Test Coverage & Verification Results
+
+- **PaymentServiceTest**: 17 unit tests verifying creation, status transitions, balance checks, overpayment rejection, refund handling, and tenant isolation.
+- **PaymentControllerTest**: 8 MockMvc tests verifying RBAC security, response envelopes, and parameter validation.
+- **PaymentDatabaseMigrationTest**: 1 integration test verifying idempotent schema application against MySQL.
+- **PaymentIntegrationTest**: 6 end-to-end integration tests verifying database persistence, multi-stage settlement, overpayment rejection, and RBAC isolation.
+- **Full Test Suite**: 269 tests executed across Phases 1–10, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).
