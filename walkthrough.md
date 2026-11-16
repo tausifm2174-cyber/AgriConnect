@@ -947,3 +947,74 @@ This section outlines the implementation, testing, database schema optimization,
 - **AdminDashboardDatabaseMigrationTest**: 1 integration test verifying index creation and existence against live MySQL `agriconnect_db`.
 - **AdminDashboardIntegrationTest**: 8 end-to-end integration tests verifying admin statistics retrieval, activity feed, user filtering, and strict RBAC enforcement (HTTP 403 for non-admins, HTTP 401 for unauthenticated).
 - **Full Test Suite**: 305 tests executed across Phases 1–12, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).
+
+---
+
+# AgriConnect — Phase 13: DBMS Queries & Reports Walkthrough
+
+This section outlines the verification, relational database demonstrations, SQL reporting catalog, analytical views, ACID transaction simulations, and normalization analysis completed for **Phase 13: DBMS Queries & Reports**.
+
+---
+
+## 1. Summary of Accomplishments
+
+- **Comprehensive SQL Query Demonstration Library (`database/queries/`)**:
+  - `01_basic_crud.sql`: SQL DML filtering (`WHERE`, `ORDER BY`, `LIMIT`, `LIKE`, `BETWEEN`, `IN`, `IS NULL`), safe demonstration inserts, updates, and deletes with immediate cleanup.
+  - `02_join_queries.sql`: Multi-table relational joins across 8 entities, including farmer harvest listings, quality-certified produce, counterparty tracking, logistics matching, payment settlements, and complete end-to-end transaction lifecycles.
+  - `03_aggregate_queries.sql`: Statistical functions (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), multi-dimensional `GROUP BY`, and threshold filtering using `HAVING`.
+  - `04_subqueries.sql`: Scalar subqueries, correlated subqueries (e.g., crop pricing premiums, highest-priced harvests per crop), membership subqueries (`IN`, `EXISTS`), and derived tables.
+  - `05_quality_reports.sql`: Quality inspection grade distribution (A, B, C), defect percentages, pending inspection queue, and quality-price correlation.
+  - `06_order_reports.sql`: Commercial contract volumes, crop turnover, counterparty analysis, cancellations audit, and monthly time-series (`DATE_FORMAT`).
+  - `07_delivery_reports.sql`: Freight logistics, shipment transit duration calculations (`TIMESTAMPDIFF`), delivery success rates, and order-to-delivery lifecycle comparisons.
+  - `08_payment_reports.sql`: Settlement channels, monthly cash flow, farmer payout ledgers, buyer expenditure, and financial fulfillment states.
+  - `09_price_reports.sql`: APMC Mandi benchmarks (`MARKET_MANDI`) vs realized platform sales (`TRANSACTION_SALE`), commodity spreads, price trends, and regional pricing.
+  - `10_farmer_reports.sql`: Supply-side operational reporting, crop portfolio yields, inspection track records, and payout tracking.
+  - `11_buyer_reports.sql`: Demand-side procurement analytics, commodity purchase breakdowns, outstanding balances, and demand-vs-procurement gap analysis.
+  - `12_marketplace_reports.sql`: Executive KPI scorecard, supply-demand deficits, producer/purchaser leaderboards, and conversion ratios.
+  - `13_views.sql`: Reusable virtual tables (`vw_verified_harvests`, `vw_order_summary`, `vw_order_delivery_payment`, `vw_marketplace_price_summary`) and analytical queries.
+  - `14_transactions.sql`: ACID transaction demonstrations (atomic order creation with stock deduction, rollback on stock deficit), and Spring Boot `@Transactional` integration architecture.
+- **Relational Schema Migration (`11_phase13_dbms_reports.sql`)**:
+  - Implements idempotent `CREATE OR REPLACE VIEW` definitions for all 4 analytical views.
+- **Full Normalization & Architecture Documentation (`database/queries/README.md`)**:
+  - Academic analysis of 1NF, 2NF, and 3NF across all 11 core tables using actual schema attributes.
+  - Performance optimization index documentation and `EXPLAIN` query execution plan verification.
+- **Automated Verification Test Suite (`Phase13DatabaseVerificationTest.java`)**:
+  - 4 automated tests verifying view existence, multi-table join integrity, subqueries, and database constraint enforcement.
+  - Regression test suite expanded to **309 passing tests** (0 failures, 0 errors, 0 skipped).
+
+---
+
+## 2. Analytical SQL Views Created
+
+1. **`vw_verified_harvests`**:
+   - Joins `harvests`, `users` (farmer), `crops`, and `quality_assessments`.
+   - Filters only `VERIFIED` quality assessments, exposing certified lots with quality score, grade, and asking price while excluding sensitive user credentials.
+2. **`vw_order_summary`**:
+   - Unifies commercial contract details across `orders`, `users` (buyer), `harvests`, `users` (farmer), and `crops`.
+3. **`vw_order_delivery_payment`**:
+   - Joins `orders`, `users` (buyer), `harvests`, `users` (farmer), `crops`, `deliveries`, and `payments`.
+   - Unifies the entire trade lifecycle: contract execution, freight dispatch, transit duration, and financial settlement.
+4. **`vw_marketplace_price_summary`**:
+   - Combines historical APMC Mandi benchmarks (`MARKET_MANDI`) with real platform transaction sales (`TRANSACTION_SALE`).
+   - Uses `COALESCE(ph.unit_price, ph.modal_price_per_kg)` for effective price evaluation.
+
+---
+
+## 3. Test Coverage & Verification Results
+
+- **`Phase13DatabaseVerificationTest`**:
+  - `testAnalyticalViewsExistAndQueryable`: Verified that all 4 views exist and return queryable result sets against MySQL `agriconnect_db`.
+  - `testJoinsAndAggregates`: Verified multi-table joins across 8 entities and statistical aggregates (`COUNT`, `SUM`, `AVG`).
+  - `testSubqueries`: Verified correlated and membership subqueries.
+  - `testDatabaseConstraintsEnforced`: Verified that relational constraints (unique email, foreign key integrity) actively reject invalid mutations.
+- **Full Test Suite Results**:
+  ```text
+  [INFO] Results:
+  [INFO]
+  [INFO] Tests run: 309, Failures: 0, Errors: 0, Skipped: 0
+  [INFO]
+  [INFO] ------------------------------------------------------------------------
+  [INFO] BUILD SUCCESS
+  [INFO] ------------------------------------------------------------------------
+  ```
+- **Frontend Syntax Verification**: `node -c frontend/js/app.js` executed with exit code 0.

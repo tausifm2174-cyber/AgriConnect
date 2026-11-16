@@ -39,6 +39,34 @@ The platform serves three user roles:
 
 ## Current Phase
 
+### Phase 13 — DBMS Queries & Reports (Completed)
+The purpose of Phase 13 is to demonstrate the full relational DBMS capabilities of AgriConnect using the live MySQL production database (`agriconnect_db`), including advanced DML operations, multi-table relational joins, multidimensional aggregations, complex subqueries, SQL views, ACID transaction lifecycles, and relational normalization through 3NF.
+
+Key accomplishments in Phase 13:
+- **Comprehensive SQL Query Demonstration Library (`database/queries/`)**:
+  - `01_basic_crud.sql`: SQL DML filtering (`WHERE`, `ORDER BY`, `LIMIT`, `LIKE`, `BETWEEN`, `IN`, `IS NULL`), safe demonstration inserts, updates, and deletes.
+  - `02_join_queries.sql`: Multi-table joins across 8 relational entities, including 6 dedicated multi-way joins traversing harvest, quality, buyer, order, delivery, and payment records.
+  - `03_aggregate_queries.sql`: Statistical functions (`COUNT`, `SUM`, `AVG`, `MIN`, `MAX`), multi-dimensional `GROUP BY`, and threshold filtering using `HAVING`.
+  - `04_subqueries.sql`: Scalar subqueries, correlated subqueries (e.g. crop pricing premiums, highest-priced harvests per crop), membership subqueries (`IN`, `EXISTS`), and derived tables.
+  - `05_quality_reports.sql`: Quality inspection grade distribution (A, B, C), defect percentages, pending inspection queue, and quality-price correlation.
+  - `06_order_reports.sql`: Commercial contract volumes, crop turnover, counterparty analysis, cancellations audit, and monthly time-series (`DATE_FORMAT`).
+  - `07_delivery_reports.sql`: Freight logistics, shipment transit duration calculations (`TIMESTAMPDIFF`), delivery success rates, and order-to-delivery lifecycle comparisons.
+  - `08_payment_reports.sql`: Settlement channels, monthly cash flow, farmer payout ledgers, buyer expenditure, and financial fulfillment states.
+  - `09_price_reports.sql`: APMC Mandi benchmarks (`MARKET_MANDI`) vs realized platform sales (`TRANSACTION_SALE`), commodity spreads, price trends, and regional pricing.
+  - `10_farmer_reports.sql`: Supply-side operational reporting, crop portfolio yields, inspection track records, and payout tracking.
+  - `11_buyer_reports.sql`: Demand-side procurement analytics, commodity purchase breakdowns, outstanding balances, and demand-vs-procurement gap analysis.
+  - `12_marketplace_reports.sql`: Executive KPI scorecard, supply-demand deficits, producer/purchaser leaderboards, and conversion ratios.
+  - `13_views.sql`: Reusable virtual tables (`vw_verified_harvests`, `vw_order_summary`, `vw_order_delivery_payment`, `vw_marketplace_price_summary`) and analytical queries.
+  - `14_transactions.sql`: ACID transaction demonstrations (atomic order creation with stock deduction, rollback on stock deficit), and Spring Boot `@Transactional` integration architecture.
+- **Relational Schema Migration (`11_phase13_dbms_reports.sql`)**:
+  - Implements idempotent `CREATE OR REPLACE VIEW` definitions for all 4 analytical views.
+- **Full Normalization & Architecture Documentation (`database/queries/README.md`)**:
+  - Thorough academic analysis of 1NF, 2NF, and 3NF across all 11 core tables using actual schema attributes.
+  - Performance optimization index documentation and `EXPLAIN` query execution plan verification.
+- **Automated Verification Test Suite (`Phase13DatabaseVerificationTest.java`)**:
+  - 4 automated tests verifying view existence, multi-table join integrity, subqueries, and database constraint enforcement.
+  - Regression test suite expanded to **309 passing tests** (0 failures, 0 errors, 0 skipped).
+
 ### Phase 12 — Admin Dashboard (Completed)
 The purpose of Phase 12 is to implement a comprehensive centralized Admin Operations & System Control Center providing administrators with unified oversight across all marketplace domains: users, produce listings, quality certifications, commercial orders, logistics fulfillment, financial escrow, and price analytics.
 
@@ -360,6 +388,6 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 10 — Payment Management** *(Completed)*
 - [x] **Phase 11 — Price History & Analytics** *(Completed)*
 - [x] **Phase 12 — Admin Dashboard** *(Completed)*
-- [ ] **Phase 13 — DBMS Queries & Reports**
+- [x] **Phase 13 — DBMS Queries & Reports** *(Completed)*
 - [ ] **Phase 14 — Security & Validation**
 - [ ] **Phase 15 — Final UI/Integration**
