@@ -888,3 +888,62 @@ This section outlines the implementation, testing, database schema extension, DB
 - **PriceHistoryDatabaseMigrationTest**: 1 integration test verifying column existence, data types, indexes, and FK constraints against MySQL.
 - **PriceHistoryIntegrationTest**: 2 end-to-end integration tests verifying payment completion -> price history creation, duplicate prevention, and RBAC security enforcement.
 - **Full Test Suite**: 286 tests executed across Phases 1–11, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).
+
+# AgriConnect — Phase 12: Admin Dashboard Walkthrough
+
+This section outlines the implementation, testing, database schema optimization, centralized aggregation architecture, API specifications, and frontend integration of **Phase 12: Admin Dashboard**.
+
+---
+
+## 1. Summary of Phase 12 Accomplishments
+
+- **Relational Schema Migration (`10_phase12_admin_dashboard.sql`)**:
+  - `idx_price_history_source`: Created non-unique index on `price_history(source_type)` to optimize source-based aggregation and filtering.
+  - `idx_harvests_status_only`: Created non-unique index on `harvests(status)` to accelerate inventory and availability counting.
+  - `idx_buyer_req_status_only`: Created non-unique index on `buyer_requirements(status)` for efficient active demand metrics.
+- **Centralized Admin Dashboard Service (`AdminDashboardService`)**:
+  - Direct database-side SQL/JPA aggregations (`countByRole`, `countByStatus`, `sumTotalAmountByOrderStatus`, `sumOverallCompletedPaymentValue`, `findOverallAveragePrice`, `findOverallTotalQuantity`).
+  - Zero entity memory-loading for analytics: high throughput and low memory footprint.
+  - Real-time marketplace activity stream: amalgamates and chronologically sorts recent events across orders, deliveries, payments, quality certifications, harvests, and price entries.
+- **User Management & Role Oversight (`AdminUserService`)**:
+  - Search and filter registered market participants by role (`FARMER`, `BUYER`, `ADMIN`), status (`ACTIVE`, `INACTIVE`, `SUSPENDED`), and keyword (name, email, phone).
+  - Specialized profile inspection: retrieves farm details for farmers and business/GSTIN details for buyers.
+  - Security and privacy: passwords and BCrypt hashes are strictly excluded from all DTOs and responses.
+- **Admin Quality Controller Enhancement (`AdminQualityController`)**:
+  - Added `GET /api/admin/quality` returning all quality assessment records for comprehensive auditability.
+- **Role-Based Access Control (RBAC)**:
+  - All admin endpoints under `/api/admin/**` protected by Spring Security (`hasRole('ADMIN')`).
+  - Cross-role requests by Farmers and Buyers return HTTP 403 Forbidden.
+  - Unauthenticated requests return HTTP 401 Unauthorized.
+- **Frontend Integration**:
+  - Centralized **Operations & System Control Center** card with 8 major KPI tiles (Users, Produce, Quality, Requirements, Orders, Logistics, Payments, Price Intelligence).
+  - Real-time **Marketplace Activity Stream** with color-coded domain icons and status badges.
+  - **System User Directory & Role Oversight** table with multi-criteria filtering and detailed user inspection modal.
+  - Maintained complete JavaScript syntax validity (`node -c frontend/js/app.js` passes with code 0).
+
+---
+
+## 2. API Endpoints
+
+### Dashboard Analytics (`ROLE_ADMIN`)
+- `GET /api/admin/dashboard`: Platform-wide statistical summary and domain KPIs.
+- `GET /api/admin/dashboard/recent-activity`: Live chronological marketplace activity feed with configurable limit.
+
+### User Management (`ROLE_ADMIN`)
+- `GET /api/admin/users`: Search and list users with optional `role`, `status`, and `search` query parameters.
+- `GET /api/admin/users/{id}`: Inspect single user details including specialized profiles.
+
+### Quality Inspection (`ROLE_ADMIN`)
+- `GET /api/admin/quality`: Retrieve all quality assessments across the platform.
+
+---
+
+## 3. Test Coverage & Verification Results
+
+- **AdminDashboardServiceTest**: 2 unit tests verifying KPI aggregations and multi-entity activity stream chronological sorting.
+- **AdminUserServiceTest**: 3 unit tests verifying multi-criteria user filtering, farmer/buyer profile mapping, and 404 handling.
+- **AdminDashboardControllerTest**: 3 WebMvc tests verifying HTTP 200 responses, status envelopes, and admin endpoint contracts.
+- **AdminUserControllerTest**: 2 WebMvc tests verifying user listing, search filters, and profile lookup.
+- **AdminDashboardDatabaseMigrationTest**: 1 integration test verifying index creation and existence against live MySQL `agriconnect_db`.
+- **AdminDashboardIntegrationTest**: 8 end-to-end integration tests verifying admin statistics retrieval, activity feed, user filtering, and strict RBAC enforcement (HTTP 403 for non-admins, HTTP 401 for unauthenticated).
+- **Full Test Suite**: 305 tests executed across Phases 1–12, 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).

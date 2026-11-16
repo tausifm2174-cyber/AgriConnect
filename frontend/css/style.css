@@ -2147,3 +2147,167 @@ body {
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
 }
 
+/* ==========================================================================
+   Phase 12: Admin Dashboard & Operations Control Center Styles
+   ========================================================================== */
+
+.admin-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.admin-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: var(--radius-md);
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.admin-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #3b82f6;
+}
+
+.admin-kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.35rem;
+}
+
+.admin-kpi-icon {
+    font-size: 1.2rem;
+}
+
+.admin-kpi-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.admin-kpi-value {
+    font-size: 1.65rem;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.2;
+    margin-bottom: 0.35rem;
+}
+
+.admin-kpi-subtext {
+    font-size: 0.75rem;
+    color: #64748b;
+    line-height: 1.4;
+}
+
+.admin-activity-container {
+    max-height: 380px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.activity-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.activity-item:last-child {
+    border-bottom: none;
+}
+
+.activity-icon-badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+}
+
+.activity-icon-ORDER { background: #e0f2fe; color: #0284c7; }
+.activity-icon-DELIVERY { background: #fef3c7; color: #d97706; }
+.activity-icon-PAYMENT { background: #dcfce7; color: #16a34a; }
+.activity-icon-QUALITY { background: #f3e8ff; color: #9333ea; }
+.activity-icon-HARVEST { background: #ecfdf5; color: #059669; }
+.activity-icon-PRICE_RECORD { background: #f1f5f9; color: #475569; }
+
+.activity-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-desc {
+    font-size: 0.88rem;
+    color: #1e293b;
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.activity-meta {
+    display: flex;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.role-badge-FARMER {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.role-badge-BUYER {
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
+
+.role-badge-ADMIN {
+    background: #fdf2f8;
+    color: #9d174d;
+    border: 1px solid #fbcfe8;
+}
+
+.user-status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.user-status-ACTIVE {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.user-status-INACTIVE {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.user-status-SUSPENDED {
+    background: #fee2e2;
+    color: #991b1b;
+}
+

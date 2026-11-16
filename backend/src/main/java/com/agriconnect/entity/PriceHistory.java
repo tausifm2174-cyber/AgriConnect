@@ -207,4 +207,12 @@ public class PriceHistory {
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
     }
+
+    /**
+     * Helper method to return the effective price:
+     * unitPrice for transaction sales, or modalPricePerKg for mandi benchmark entries.
+     */
+    public BigDecimal getEffectivePrice() {
+        return unitPrice != null ? unitPrice : modalPricePerKg;
+    }
 }

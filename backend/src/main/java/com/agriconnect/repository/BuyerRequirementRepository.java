@@ -44,4 +44,14 @@ public interface BuyerRequirementRepository extends JpaRepository<BuyerRequireme
      * Find all requirements across buyers by status (e.g. for matching engine in future phases).
      */
     List<BuyerRequirement> findByStatusOrderByCreatedAtDesc(RequirementStatus status);
+
+    /**
+     * Find all requirements across buyers, newest first.
+     */
+    List<BuyerRequirement> findAllByOrderByCreatedAtDesc();
+
+    /**
+     * Count requirements across the marketplace by status.
+     */
+    long countByStatus(RequirementStatus status);
 }

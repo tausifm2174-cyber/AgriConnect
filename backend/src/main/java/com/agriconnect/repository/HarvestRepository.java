@@ -26,6 +26,10 @@ public interface HarvestRepository extends JpaRepository<Harvest, Integer> {
 
     long countByFarmer_UserIdAndStatus(Integer farmerUserId, HarvestStatus status);
 
+    long countByStatus(HarvestStatus status);
+
+    List<Harvest> findAllByOrderByCreatedAtDesc();
+
     /**
      * Checks if orders reference this harvest without prematurely instantiating Order entities,
      * maintaining clean Phase boundaries while preserving foreign key integrity.

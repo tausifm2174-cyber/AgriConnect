@@ -31,6 +31,11 @@ const BUYER_PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/buyer/price-history`;
 const ADMIN_PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/admin/price-history`;
 const PRICE_HISTORY_ENDPOINT = `${API_BASE_URL}/api/price-history`;
 
+// Phase 12 Admin Dashboard & User Management Endpoints
+const ADMIN_DASHBOARD_ENDPOINT = `${API_BASE_URL}/api/admin/dashboard`;
+const ADMIN_RECENT_ACTIVITY_ENDPOINT = `${API_BASE_URL}/api/admin/dashboard/recent-activity`;
+const ADMIN_USERS_ENDPOINT = `${API_BASE_URL}/api/admin/users`;
+
 const TOKEN_STORAGE_KEY = 'agriconnect_jwt_token';
 
 // State
@@ -1464,6 +1469,9 @@ window.closeFarmerQualityModal = closeFarmerQualityModal;
 // ===================================================================
 
 async function initAdminQualityDashboard() {
+    await loadAdminDashboardStats();
+    await loadAdminRecentActivity();
+    await loadAdminUsers();
     await loadAdminQualityMetrics();
     await loadAdminQualityQueue();
     await loadAdminOrders();
@@ -5447,4 +5455,415 @@ document.addEventListener('DOMContentLoaded', () => {
             await loadAdminPriceHistory();
         });
     }
+
+    // Phase 12 Admin Dashboard Controls
+    const refreshAdminDashboardBtn = document.getElementById('refresh-admin-dashboard-btn');
+    if (refreshAdminDashboardBtn) {
+        refreshAdminDashboardBtn.addEventListener('click', async () => {
+            await loadAdminDashboardStats();
+            showAdminDashboardAlert('Operations Control Center metrics refreshed successfully.', 'success');
+        });
+    }
+
+    const refreshAdminActivityBtn = document.getElementById('refresh-admin-activity-btn');
+    if (refreshAdminActivityBtn) {
+        refreshAdminActivityBtn.addEventListener('click', async () => {
+            await loadAdminRecentActivity();
+        });
+    }
+
+    const refreshAdminUsersBtn = document.getElementById('refresh-admin-users-btn');
+    if (refreshAdminUsersBtn) {
+        refreshAdminUsersBtn.addEventListener('click', async () => {
+            await loadAdminUsers();
+            showAdminUsersAlert('User directory refreshed.', 'success');
+        });
+    }
+
+    const adminUserFilterBtn = document.getElementById('admin-user-filter-btn');
+    if (adminUserFilterBtn) {
+        adminUserFilterBtn.addEventListener('click', async () => {
+            await loadAdminUsers();
+        });
+    }
+
+    const adminUserResetBtn = document.getElementById('admin-user-reset-btn');
+    if (adminUserResetBtn) {
+        adminUserResetBtn.addEventListener('click', async () => {
+            const roleFilter = document.getElementById('admin-user-role-filter');
+            const statusFilter = document.getElementById('admin-user-status-filter');
+            const searchInput = document.getElementById('admin-user-search-input');
+            if (roleFilter) roleFilter.value = 'ALL';
+            if (statusFilter) statusFilter.value = 'ALL';
+            if (searchInput) searchInput.value = '';
+            await loadAdminUsers();
+        });
+    }
+
+    const closeAdminUserDetailsBtn = document.getElementById('close-admin-user-details-modal-btn');
+    if (closeAdminUserDetailsBtn) {
+        closeAdminUserDetailsBtn.addEventListener('click', closeAdminUserDetailsModal);
+    }
+
+    const dismissAdminUserDetailsBtn = document.getElementById('dismiss-admin-user-details-btn');
+    if (dismissAdminUserDetailsBtn) {
+        dismissAdminUserDetailsBtn.addEventListener('click', closeAdminUserDetailsModal);
+    }
 });
+
+// ===================================================================
+// Phase 12: Admin Centralized Operations Dashboard Logic
+// ===================================================================
+
+function showAdminDashboardAlert(message, type = 'info') {
+    const alertBox = document.getElementById('admin-dashboard-alert');
+    if (!alertBox) return;
+    alertBox.className = `auth-alert ${type}`;
+    alertBox.textContent = message;
+    alertBox.classList.remove('hidden');
+    setTimeout(() => {
+        alertBox.classList.add('hidden');
+    }, 5000);
+}
+
+function showAdminUsersAlert(message, type = 'info') {
+    const alertBox = document.getElementById('admin-users-alert');
+    if (!alertBox) return;
+    alertBox.className = `auth-alert ${type}`;
+    alertBox.textContent = message;
+    alertBox.classList.remove('hidden');
+    setTimeout(() => {
+        alertBox.classList.add('hidden');
+    }, 5000);
+}
+
+async function loadAdminDashboardStats() {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(ADMIN_DASHBOARD_ENDPOINT, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            console.error('Failed to load admin dashboard stats:', response.status);
+            return;
+        }
+
+        const res = await response.json();
+        const data = res.data;
+        if (!data) return;
+
+        // 1. Users
+        const u = data.userStats;
+        if (u) {
+            const elTotal = document.getElementById('admin-kpi-users-total');
+            const elSub = document.getElementById('admin-kpi-users-breakdown');
+            if (elTotal) elTotal.textContent = u.totalUsers;
+            if (elSub) elSub.textContent = `Farmers: ${u.totalFarmers} | Buyers: ${u.totalBuyers} | Admins: ${u.totalAdmins} (Active: ${u.activeUsers})`;
+        }
+
+        // 2. Harvests
+        const h = data.harvestStats;
+        if (h) {
+            const elTotal = document.getElementById('admin-kpi-harvests-total');
+            const elSub = document.getElementById('admin-kpi-harvests-breakdown');
+            if (elTotal) elTotal.textContent = h.totalHarvests;
+            if (elSub) elSub.textContent = `Available: ${h.availableHarvests} | Sold Out: ${h.soldOutHarvests}`;
+        }
+
+        // 3. Quality
+        const q = data.qualityStats;
+        if (q) {
+            const elTotal = document.getElementById('admin-kpi-quality-total');
+            const elSub = document.getElementById('admin-kpi-quality-breakdown');
+            if (elTotal) elTotal.textContent = q.totalAssessments;
+            if (elSub) elSub.textContent = `Grade A: ${q.gradeACount} | B: ${q.gradeBCount} | C: ${q.gradeCCount}`;
+        }
+
+        // 4. Requirements
+        const r = data.requirementStats;
+        if (r) {
+            const elTotal = document.getElementById('admin-kpi-reqs-total');
+            const elSub = document.getElementById('admin-kpi-reqs-breakdown');
+            if (elTotal) elTotal.textContent = r.totalRequirements;
+            if (elSub) elSub.textContent = `Open: ${r.activeRequirements} | Fulfilled: ${r.fulfilledRequirements}`;
+        }
+
+        // 5. Orders
+        const o = data.orderStats;
+        if (o) {
+            const elTotal = document.getElementById('admin-kpi-orders-total');
+            const elSub = document.getElementById('admin-kpi-orders-breakdown');
+            if (elTotal) elTotal.textContent = o.totalOrders;
+            const gmv = o.totalOrderAmount != null ? Number(o.totalOrderAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+            const comp = o.completedOrderAmount != null ? Number(o.completedOrderAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+            if (elSub) elSub.textContent = `GMV: ₹${gmv} | Delivered: ₹${comp}`;
+        }
+
+        // 6. Deliveries
+        const d = data.deliveryStats;
+        if (d) {
+            const elTotal = document.getElementById('admin-kpi-deliveries-total');
+            const elSub = document.getElementById('admin-kpi-deliveries-breakdown');
+            if (elTotal) elTotal.textContent = d.totalDeliveries;
+            if (elSub) elSub.textContent = `In Transit: ${d.inTransitDeliveries} | Delivered: ${d.deliveredDeliveries}`;
+        }
+
+        // 7. Payments
+        const p = data.paymentStats;
+        if (p) {
+            const elTotal = document.getElementById('admin-kpi-payments-total');
+            const elSub = document.getElementById('admin-kpi-payments-breakdown');
+            if (elTotal) elTotal.textContent = p.totalPayments;
+            const settled = p.totalSettledAmount != null ? Number(p.totalSettledAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+            if (elSub) elSub.textContent = `Settled: ₹${settled} | Completed: ${p.completedPayments}`;
+        }
+
+        // 8. Price History
+        const ph = data.priceHistoryStats;
+        if (ph) {
+            const elTotal = document.getElementById('admin-kpi-price-total');
+            const elSub = document.getElementById('admin-kpi-price-breakdown');
+            if (elTotal) elTotal.textContent = ph.totalRecords;
+            const avg = ph.overallAveragePrice != null ? Number(ph.overallAveragePrice).toFixed(2) : '0.00';
+            if (elSub) elSub.textContent = `Avg: ₹${avg}/kg | Mandi: ${ph.mandiSourceRecords}`;
+        }
+
+    } catch (err) {
+        console.error('Error fetching admin dashboard stats:', err);
+    }
+}
+
+async function loadAdminRecentActivity() {
+    const token = getAuthToken();
+    const container = document.getElementById('admin-activity-feed');
+    if (!token || !container) return;
+
+    try {
+        const response = await fetch(`${ADMIN_RECENT_ACTIVITY_ENDPOINT}?limit=15`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            container.innerHTML = '<div class="text-center py-3 text-muted">Unable to load recent activities.</div>';
+            return;
+        }
+
+        const res = await response.json();
+        const activities = res.data || [];
+
+        if (activities.length === 0) {
+            container.innerHTML = '<div class="text-center py-4 text-muted">No recent marketplace transactions or events recorded.</div>';
+            return;
+        }
+
+        const iconMap = {
+            'ORDER': '🛒',
+            'DELIVERY': '🚚',
+            'PAYMENT': '💳',
+            'QUALITY': '⭐',
+            'HARVEST': '🌾',
+            'PRICE_RECORD': '📈'
+        };
+
+        container.innerHTML = activities.map(act => {
+            const icon = iconMap[act.activityType] || '⚡';
+            const timeStr = act.timestamp ? new Date(act.timestamp).toLocaleString('en-IN', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            }) : '--';
+
+            return `
+                <div class="activity-item">
+                    <div class="activity-icon-badge activity-icon-${escapeHtml(act.activityType)}">
+                        ${icon}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-desc">${escapeHtml(act.description)}</div>
+                        <div class="activity-meta">
+                            <span>👤 ${escapeHtml(act.actorName || 'System')}</span>
+                            <span>🕒 ${timeStr}</span>
+                            <span class="activity-badge badge-${escapeHtml(act.status)}">${escapeHtml(act.status || act.activityType)}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error('Error loading recent activities:', err);
+        container.innerHTML = '<div class="text-center py-3 text-muted">Error loading activity feed.</div>';
+    }
+}
+
+async function loadAdminUsers() {
+    const token = getAuthToken();
+    const tbody = document.getElementById('admin-users-tbody');
+    if (!token || !tbody) return;
+
+    const roleSelect = document.getElementById('admin-user-role-filter');
+    const statusSelect = document.getElementById('admin-user-status-filter');
+    const searchInput = document.getElementById('admin-user-search-input');
+
+    const role = roleSelect ? roleSelect.value : 'ALL';
+    const status = statusSelect ? statusSelect.value : 'ALL';
+    const search = searchInput ? searchInput.value.trim() : '';
+
+    const params = new URLSearchParams();
+    if (role && role !== 'ALL') params.append('role', role);
+    if (status && status !== 'ALL') params.append('status', status);
+    if (search) params.append('search', search);
+
+    const url = params.toString() ? `${ADMIN_USERS_ENDPOINT}?${params.toString()}` : ADMIN_USERS_ENDPOINT;
+
+    try {
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Failed to load users.</td></tr>';
+            return;
+        }
+
+        const res = await response.json();
+        const users = res.data || [];
+
+        if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">No users found matching current filters.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = users.map(u => {
+            let profileSummary = '-';
+            if (u.role === 'FARMER' && u.farmerProfile) {
+                profileSummary = `🌾 ${escapeHtml(u.farmerProfile.farmLocation || '')} (${u.farmerProfile.farmSizeAcres || 0} ac)`;
+            } else if (u.role === 'BUYER' && u.buyerProfile) {
+                profileSummary = `🏢 ${escapeHtml(u.buyerProfile.businessName || '')} [${escapeHtml(u.buyerProfile.businessType || '')}]`;
+            }
+
+            const regDate = u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '--';
+
+            return `
+                <tr>
+                    <td><strong>#${u.userId}</strong></td>
+                    <td><strong>${escapeHtml(u.fullName)}</strong></td>
+                    <td><span class="role-badge role-badge-${escapeHtml(u.role)}">${escapeHtml(u.role)}</span></td>
+                    <td>
+                        <div>${escapeHtml(u.email)}</div>
+                        <small style="color: #64748b;">${escapeHtml(u.phone || '-')}</small>
+                    </td>
+                    <td><span class="user-status-badge user-status-${escapeHtml(u.status)}">${escapeHtml(u.status)}</span></td>
+                    <td><small>${profileSummary}</small></td>
+                    <td>${regDate}</td>
+                    <td>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="viewAdminUserDetails(${u.userId})">
+                            Details
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (err) {
+        console.error('Error loading admin users:', err);
+        tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Error loading user list.</td></tr>';
+    }
+}
+
+async function viewAdminUserDetails(userId) {
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const response = await fetch(`${ADMIN_USERS_ENDPOINT}/${userId}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            alert('Failed to retrieve user details.');
+            return;
+        }
+
+        const res = await response.json();
+        const u = res.data;
+        if (!u) return;
+
+        const bodyEl = document.getElementById('admin-user-details-body');
+        if (!bodyEl) return;
+
+        let profileHtml = '';
+        if (u.role === 'FARMER' && u.farmerProfile) {
+            profileHtml = `
+                <div class="quality-meta-box" style="margin-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; color: #065f46;">🌾 Farmer Specialization Profile</h4>
+                    <div><strong>Farm Location:</strong> ${escapeHtml(u.farmerProfile.farmLocation || 'Not specified')}</div>
+                    <div><strong>Farm Size:</strong> ${u.farmerProfile.farmSizeAcres || 0} acres</div>
+                    <div><strong>Experience:</strong> ${u.farmerProfile.experienceYears || 0} years</div>
+                </div>
+            `;
+        } else if (u.role === 'BUYER' && u.buyerProfile) {
+            profileHtml = `
+                <div class="quality-meta-box" style="margin-top: 1rem;">
+                    <h4 style="margin-bottom: 0.5rem; color: #1e40af;">🏢 Commercial Buyer Profile</h4>
+                    <div><strong>Business Name:</strong> ${escapeHtml(u.buyerProfile.businessName || 'Not specified')}</div>
+                    <div><strong>Business Type:</strong> ${escapeHtml(u.buyerProfile.businessType || '-')}</div>
+                    <div><strong>GSTIN:</strong> ${escapeHtml(u.buyerProfile.gstin || 'Not registered')}</div>
+                    <div><strong>Business Address:</strong> ${escapeHtml(u.buyerProfile.businessAddress || '-')}</div>
+                </div>
+            `;
+        }
+
+        const createdStr = u.createdAt ? new Date(u.createdAt).toLocaleString('en-IN') : '--';
+        const updatedStr = u.updatedAt ? new Date(u.updatedAt).toLocaleString('en-IN') : '--';
+
+        bodyEl.innerHTML = `
+            <div class="quality-meta-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <h4 style="margin: 0; color: #0f172a;">#${u.userId} — ${escapeHtml(u.fullName)}</h4>
+                    <span class="role-badge role-badge-${escapeHtml(u.role)}">${escapeHtml(u.role)}</span>
+                </div>
+                <div><strong>Email:</strong> ${escapeHtml(u.email)}</div>
+                <div><strong>Phone:</strong> ${escapeHtml(u.phone || 'Not provided')}</div>
+                <div><strong>Account Status:</strong> <span class="user-status-badge user-status-${escapeHtml(u.status)}">${escapeHtml(u.status)}</span></div>
+                <div><strong>Member Since:</strong> ${createdStr}</div>
+                <div><strong>Last Updated:</strong> ${updatedStr}</div>
+            </div>
+            ${profileHtml}
+        `;
+
+        const modal = document.getElementById('admin-user-details-modal');
+        if (modal) modal.classList.remove('hidden');
+
+    } catch (err) {
+        console.error('Error viewing user details:', err);
+    }
+}
+
+function closeAdminUserDetailsModal() {
+    const modal = document.getElementById('admin-user-details-modal');
+    if (modal) modal.classList.add('hidden');
+}
+
+window.viewAdminUserDetails = viewAdminUserDetails;
+window.closeAdminUserDetailsModal = closeAdminUserDetailsModal;
+window.loadAdminDashboardStats = loadAdminDashboardStats;
+window.loadAdminRecentActivity = loadAdminRecentActivity;
+window.loadAdminUsers = loadAdminUsers;

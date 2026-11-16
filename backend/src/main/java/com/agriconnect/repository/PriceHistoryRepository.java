@@ -43,6 +43,8 @@ public interface PriceHistoryRepository extends JpaRepository<PriceHistory, Inte
 
     List<PriceHistory> findByCrop_CropIdAndSourceTypeOrderByRecordedDateDesc(Integer cropId, PriceSourceType sourceType);
 
+    long countBySourceType(PriceSourceType sourceType);
+
     // Global ordering
     List<PriceHistory> findAllByOrderByRecordedDateDesc();
 

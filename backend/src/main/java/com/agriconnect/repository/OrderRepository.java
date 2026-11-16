@@ -67,4 +67,21 @@ public interface OrderRepository extends JpaRepository<Order, Integer> {
      * Count orders by farmer and status (for dashboard metrics).
      */
     long countByHarvest_Farmer_UserIdAndOrderStatus(Integer farmerUserId, OrderStatus orderStatus);
+
+    /**
+     * Count orders across marketplace by status.
+     */
+    long countByOrderStatus(OrderStatus orderStatus);
+
+    /**
+     * Platform-wide total monetary value of orders with specific status.
+     */
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o WHERE o.orderStatus = :orderStatus")
+    java.math.BigDecimal sumTotalAmountByOrderStatus(@Param("orderStatus") OrderStatus orderStatus);
+
+    /**
+     * Platform-wide total monetary value across all orders.
+     */
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o")
+    java.math.BigDecimal sumOverallOrderAmount();
 }

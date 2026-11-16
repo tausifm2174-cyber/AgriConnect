@@ -325,6 +325,17 @@ public class QualityAssessmentService {
         return metrics;
     }
 
+    /**
+     * Retrieves all quality assessments across the platform (Admin).
+     */
+    @Transactional(readOnly = true)
+    public List<QualityAssessmentResponse> getAllAssessments() {
+        return qualityAssessmentRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(QualityAssessmentResponse::new)
+                .toList();
+    }
+
     // ===================================================================
     // Farmer Read-Only Quality API (Sections 12, 13)
     // ===================================================================

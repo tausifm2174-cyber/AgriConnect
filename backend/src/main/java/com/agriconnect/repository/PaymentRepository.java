@@ -48,5 +48,9 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
            "WHERE p.order.orderId = :orderId AND p.paymentStatus IN (com.agriconnect.entity.PaymentStatus.COMPLETED, com.agriconnect.entity.PaymentStatus.PAID)")
     BigDecimal sumCompletedAmountByOrderId(@Param("orderId") Integer orderId);
 
+    @Query("SELECT COALESCE(SUM(p.amount), 0) FROM Payment p " +
+           "WHERE p.paymentStatus IN (com.agriconnect.entity.PaymentStatus.COMPLETED, com.agriconnect.entity.PaymentStatus.PAID)")
+    BigDecimal sumOverallCompletedPaymentValue();
+
     long countByPaymentStatus(PaymentStatus paymentStatus);
 }

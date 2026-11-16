@@ -28,6 +28,16 @@ public class AdminQualityController {
     }
 
     /**
+     * Get all quality assessments across the marketplace (for Admin Dashboard).
+     * GET /api/admin/quality
+     */
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<QualityAssessmentResponse>>> getAllAssessments() {
+        List<QualityAssessmentResponse> assessments = qualityAssessmentService.getAllAssessments();
+        return ResponseEntity.ok(ApiResponse.success("All quality assessments retrieved successfully", assessments));
+    }
+
+    /**
      * 1. Get harvests requiring quality assessment or filtered by status.
      * GET /api/admin/quality/pending
      */

@@ -39,8 +39,43 @@ The platform serves three user roles:
 
 ## Current Phase
 
-### Phase 9 — Delivery Management (Completed)
-The purpose of Phase 9 is to implement comprehensive delivery management and logistics tracking using the existing Phase 8 order system.
+### Phase 12 — Admin Dashboard (Completed)
+The purpose of Phase 12 is to implement a comprehensive centralized Admin Operations & System Control Center providing administrators with unified oversight across all marketplace domains: users, produce listings, quality certifications, commercial orders, logistics fulfillment, financial escrow, and price analytics.
+
+Key accomplishments in Phase 12:
+- **Relational Schema Migration (`10_phase12_admin_dashboard.sql`)**:
+  - Added dedicated index `idx_price_history_source` on `price_history(source_type)` for optimized source filtering.
+  - Added dedicated index `idx_harvests_status_only` on `harvests(status)` for fast marketplace lot aggregation.
+  - Added dedicated index `idx_buyer_req_status_only` on `buyer_requirements(status)` for high-performance demand counting.
+- **Unified Analytics & Aggregation Engine (`AdminDashboardService`)**:
+  - Computes platform-wide KPIs directly via database-side SQL/JPA queries (`COUNT`, `SUM`, `AVG`), preventing in-memory iteration overhead.
+  - Generates cross-domain activity stream chronologically ordering events across orders, deliveries, payments, quality certifications, harvests, and mandi price records.
+- **Administrative User Directory & Specialization Oversight (`AdminUserService`)**:
+  - Filter users by Role (`FARMER`, `BUYER`, `ADMIN`) and operational status (`ACTIVE`, `INACTIVE`, `SUSPENDED`).
+  - Search keyword filtering across full name, email, and phone.
+  - Deep inspection of Farmer specialization profiles (farm location, acreage, experience) and Buyer profiles (business name, type, GSTIN, address).
+  - Strictly sanitized: passwords and password hashes are never exposed.
+- **Quality Inspection API Enhancement (`AdminQualityController`)**:
+  - Added `GET /api/admin/quality` returning all system quality assessments.
+- **Strict Role-Based Access Control (RBAC)**:
+  - All `/api/admin/**` endpoints protected by Spring Security (`hasRole('ADMIN')`).
+  - Non-admin users (Farmers, Commercial Buyers) receive `403 Forbidden`; unauthenticated requests receive `401 Unauthorized`.
+- **REST APIs**:
+  - `GET /api/admin/dashboard` (Platform-wide statistical summary and KPIs)
+  - `GET /api/admin/dashboard/recent-activity` (Live chronological marketplace activity feed)
+  - `GET /api/admin/users` (Search and list system users with role/status filters)
+  - `GET /api/admin/users/{id}` (Detailed user inspection with specialization profile)
+  - `GET /api/admin/quality` (All marketplace quality assessments)
+- **Frontend Integration**:
+  - Centralized **Operations Control Center** card with 8 major KPI tiles (Users, Harvests, Quality, Demands, Orders, Deliveries, Payments, Price Intelligence).
+  - Real-time **Marketplace Activity Stream** with domain icons and status badges.
+  - **User Directory & Role Oversight** table with multi-criteria filtering and detailed user inspection modal.
+- **Test Suite**:
+  - 19 dedicated tests covering service aggregations, activity feed ordering, user filtering, controller contracts, idempotent database migrations, and live Spring Boot integration with RBAC security enforcement.
+  - 305 total automated tests passing across Phases 1–12 (`BUILD SUCCESS`).
+
+### Phase 11 — Price History & Analytics (Completed)
+The purpose of Phase 11 is to implement comprehensive historical price intelligence and market trend analytics.
 
 Key accomplishments in Phase 9:
 - **Relational Schema Migration (`07_phase9_delivery_management.sql`)**:
@@ -324,7 +359,7 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 9 — Delivery Management** *(Completed)*
 - [x] **Phase 10 — Payment Management** *(Completed)*
 - [x] **Phase 11 — Price History & Analytics** *(Completed)*
-- [ ] **Phase 12 — Admin Dashboard**
+- [x] **Phase 12 — Admin Dashboard** *(Completed)*
 - [ ] **Phase 13 — DBMS Queries & Reports**
 - [ ] **Phase 14 — Security & Validation**
 - [ ] **Phase 15 — Final UI/Integration**

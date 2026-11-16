@@ -32,6 +32,8 @@ public interface QualityAssessmentRepository extends JpaRepository<QualityAssess
 
     long countByVerificationStatus(VerificationStatus verificationStatus);
 
+    long countByQualityGrade(QualityGrade qualityGrade);
+
     /**
      * Efficient relational query for Phase 7 Quality-Aware Matching Engine.
      * Joins QualityAssessment -> Harvest -> Crop -> Farmer, filtering at the database layer by:
