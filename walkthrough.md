@@ -1018,3 +1018,106 @@ This section outlines the verification, relational database demonstrations, SQL 
   [INFO] ------------------------------------------------------------------------
   ```
 - **Frontend Syntax Verification**: `node -c frontend/js/app.js` executed with exit code 0.
+
+---
+
+# AgriConnect — Phase 14: Security Hardening & Validation Refinement Walkthrough
+
+This section documents the end-to-end security audit, exception handling refinement, defensive validation controls, and regression test suite expansion completed for **Phase 14: Security & Validation Refinement**.
+
+---
+
+## 1. Summary of Accomplishments
+
+- **Comprehensive Security Audit (Phases 1–13)**:
+  - **Authentication & Credential Protection**: BCrypt hashing with salt rounds strictly applied on all passwords; registration endpoint forbids creation of `ADMIN` accounts; passwords and hashes are strictly excluded from all response payloads.
+  - **JWT Token Architecture**: HMAC-SHA256 signing with secret key from environment; stateless session policy (`SessionCreationPolicy.STATELESS`); tokens validated against signature, expiration, and in-memory revocation blacklist (`TokenBlacklistService`). Client-supplied user IDs in bodies are ignored in favor of `@AuthenticationPrincipal CustomUserDetails`.
+  - **Role-Based Access Control (RBAC)**: Endpoint security mapping in `SecurityConfig.java`:
+    - `/api/farmer/**` restricted to `ROLE_FARMER`
+    - `/api/buyer/**` restricted to `ROLE_BUYER`
+    - `/api/admin/**` restricted to `ROLE_ADMIN`
+    - `/api/crops/**`, `/api/price-history/**`, `/api/auth/me` restricted to authenticated users
+    - Custom entry point (`CustomAuthenticationEntryPoint`) returns structured 401 Unauthorized; custom access denied handler (`CustomAccessDeniedHandler`) returns structured 403 Forbidden.
+  - **IDOR / Ownership Boundary Defenses**:
+    - Harvests: Farmers can only view, update, or delete lots where `harvest.farmer.userId == authenticatedUserId`.
+    - Quality Assessments: Farmers can only view inspections for their own harvest lots.
+    - Orders: Buyers can only inspect/cancel their own orders; farmers can only accept/reject orders against their own harvest lots; buyers cannot purchase their own harvests.
+    - Requirements: Buyers can only view, update, or cancel requirements where `requirement.buyer.userId == authenticatedUserId`.
+    - Deliveries & Payments: Only order counterparties or admins can view shipments and transaction ledgers.
+  - **Input & Business Logic Validation**:
+    - Jakarta Validation applied across all request DTOs (`@NotNull`, `@NotBlank`, `@Size`, `@Email`, `@Pattern`, `@DecimalMin`, `@Min`, `@Max`).
+    - Quality score calculation and grade determination are strictly computed server-side to prevent client parameter tampering.
+  - **SQL & JPA Injection Defenses**:
+    - 100% of repository methods utilize Spring Data derived finders or parameterized JPQL/native SQL queries (`:paramName`). Zero string concatenation.
+  - **Sensitive Response Data Exclusion**:
+    - All DTOs (`UserResponse`, `AuthResponse`, `AdminUserResponse`, `HarvestResponse`, `OrderResponse`, `DeliveryResponse`, `PaymentResponse`, `PriceHistoryResponse`, `QualityAssessmentResponse`) inspected and confirmed free of password hashes or credentials.
+
+- **Centralized Exception Sanitization (`GlobalExceptionHandler.java`)**:
+  - Refined to intercept and safely format common client input and framework exceptions into structured JSON responses:
+    - `HttpMessageNotReadableException` -> 400 Bad Request (`"Malformed JSON request or invalid field format."`)
+    - `MethodArgumentTypeMismatchException` -> 400 Bad Request (`"Invalid parameter value for: {paramName}"`)
+    - `MissingServletRequestParameterException` -> 400 Bad Request (`"Missing required request parameter: {paramName}"`)
+    - `IllegalArgumentException` / `IllegalStateException` -> 400 Bad Request
+    - `DataIntegrityViolationException` -> 409 Conflict (`"Database constraint or data integrity conflict. Operation could not be completed."`)
+    - `HttpRequestMethodNotSupportedException` -> 405 Method Not Allowed (`"HTTP method '{method}' is not supported for this endpoint."`)
+  - Ensures raw SQL error codes, Hibernate statements, and Java stack traces are never returned to clients.
+
+- **Automated Security Hardening Test Suite (`SecurityHardeningTest.java`)**:
+  - Implemented 22 dedicated automated test scenarios covering:
+    1. Unauthenticated requests returning structured 401 Unauthorized across all role controllers.
+    2. Malformed JWT token rejection (401).
+    3. Tampered JWT signature rejection (401).
+    4. Farmer denied access to Buyer endpoints (403 Forbidden).
+    5. Farmer denied access to Admin endpoints (403 Forbidden).
+    6. Buyer denied access to Farmer endpoints (403 Forbidden).
+    7. Buyer denied access to Admin endpoints (403 Forbidden).
+    8. Public registration rejection for `ADMIN` role requests (400 Bad Request).
+    9. Farmer forbidden from updating another farmer's harvest lot (403 Forbidden).
+    10. Farmer forbidden from viewing another farmer's quality inspection (403 Forbidden).
+    11. Farmer forbidden from viewing incoming order for another farmer's harvest (403 Forbidden).
+    12. Buyer forbidden from viewing another buyer's order (403 Forbidden).
+    13. Buyer forbidden from cancelling another buyer's order (403 Forbidden).
+    14. Buyer forbidden from modifying another buyer's requirement (403 Forbidden).
+    15. Registration field validation errors for blank name, invalid email, and short password (400 Bad Request).
+    16. Harvest creation validation errors for negative quantity (400 Bad Request).
+    17. Quality inspection validation errors for out-of-range ratings (> 10) (400 Bad Request).
+    18. Malformed JSON payload handling without stack trace leakage (400 Bad Request).
+    19. Path variable type mismatch handling without internal leakage (400 Bad Request).
+    20. Unsupported HTTP method handling (405 Method Not Allowed).
+    21. `GET /api/auth/me` confirmation that password and passwordHash are excluded.
+    22. `GET /api/admin/users/{id}` confirmation that password and passwordHash are excluded.
+
+---
+
+## 2. Test Execution & Verification
+
+### 2.1. Security Hardening Test Execution
+```bash
+python scratch/run_tests.py test -Dtest=SecurityHardeningTest
+```
+```text
+[INFO] Running com.agriconnect.SecurityHardeningTest
+[INFO] Tests run: 22, Failures: 0, Errors: 0, Skipped: 0
+[INFO] BUILD SUCCESS
+```
+
+### 2.2. Full System Regression Test Suite
+```bash
+python scratch/run_tests.py clean test
+```
+```text
+[INFO] Results:
+[INFO]
+[INFO] Tests run: 331, Failures: 0, Errors: 0, Skipped: 0
+[INFO]
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  33.920 s
+```
+
+### 2.3. Frontend Code Syntax Check
+```bash
+node -c frontend/js/app.js
+```
+Command exited cleanly with returncode 0.

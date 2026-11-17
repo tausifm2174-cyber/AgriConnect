@@ -192,6 +192,26 @@ Key accomplishments in Phase 8:
 - **Test Suite**:
   - 200 total automated tests passing (`.\backend\mvnw.cmd test`), covering unit tests, integration tests, security boundaries, stock mutations, rollback scenarios, and multi-threaded race conditions.
 
+### Phase 14: Security Hardening & Validation Refinement
+- **Comprehensive Security Audit**: Completed full end-to-end security review across Authentication, JWT Token Security, Role-Based Access Control (RBAC), Insecure Direct Object References (IDOR), Request & Business Validation, SQL/JPA Injection Prevention, Exception Handling & Data Leakage Prevention, Sensitive Response Data Exclusion, and Frontend Client Enforcement.
+- **Centralized Exception Sanitization (`GlobalExceptionHandler`)**:
+  - `HttpMessageNotReadableException` -> Safe 400 Bad Request ("Malformed JSON request or invalid field format.")
+  - `MethodArgumentTypeMismatchException` -> Safe 400 Bad Request ("Invalid parameter value for: {param}")
+  - `MissingServletRequestParameterException` -> Safe 400 Bad Request
+  - `IllegalArgumentException` / `IllegalStateException` -> Safe 400 Bad Request
+  - `DataIntegrityViolationException` -> Safe 409 Conflict ("Database constraint or data integrity conflict. Operation could not be completed.")
+  - `HttpRequestMethodNotSupportedException` -> Safe 405 Method Not Allowed
+  - Internal database details, Hibernate queries, and Java stack traces are strictly hidden from clients.
+- **Automated Security Hardening Regression Suite (`SecurityHardeningTest.java`)**:
+  - 22 focused security tests covering:
+    - 401 Unauthorized verification on unauthenticated requests and tampered/malformed JWTs.
+    - 403 Forbidden verification on cross-role privilege escalation (Farmer -> Buyer/Admin, Buyer -> Farmer/Admin).
+    - 400 Bad Request rejection when attempting to register as `ADMIN` on the public registration endpoint.
+    - IDOR prevention ensuring farmers cannot modify/view other farmers' harvests, quality reports, or incoming orders, and buyers cannot access/cancel other buyers' orders or requirements.
+    - Request validation verifying boundary checks on quantities, ratings, and emails.
+    - Strict exclusion of passwords and password hashes from API responses (`/api/auth/me`, `/api/admin/users/{id}`).
+- **Total Test Suite**: Expanded to **331 automated tests** passing (`.\backend\mvnw.cmd test` / `scratch/run_tests.py`), 0 failures, 0 errors, 0 skipped (`BUILD SUCCESS`).
+
 For full architectural details, see [backend/BUYER_REQUIREMENTS.md](backend/BUYER_REQUIREMENTS.md), [backend/QUALITY_MANAGEMENT.md](backend/QUALITY_MANAGEMENT.md), [backend/FARMER_HARVEST_MANAGEMENT.md](backend/FARMER_HARVEST_MANAGEMENT.md), and [backend/AUTHENTICATION.md](backend/AUTHENTICATION.md).
 
 ---
@@ -389,5 +409,5 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 11 — Price History & Analytics** *(Completed)*
 - [x] **Phase 12 — Admin Dashboard** *(Completed)*
 - [x] **Phase 13 — DBMS Queries & Reports** *(Completed)*
-- [ ] **Phase 14 — Security & Validation**
+- [x] **Phase 14 — Security & Validation** *(Completed)*
 - [ ] **Phase 15 — Final UI/Integration**
