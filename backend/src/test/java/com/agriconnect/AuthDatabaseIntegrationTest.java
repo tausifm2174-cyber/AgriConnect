@@ -140,15 +140,31 @@ class AuthDatabaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("Real DB: Login with backfilled existing sample user (admin@agriconnect.org / Password@123)")
+    @DisplayName("Real DB: Login with backfilled existing sample users (Password@123)")
     void testRealDatabaseSampleUserLogin() {
-        LoginRequest request = new LoginRequest("admin@agriconnect.org", "Password@123");
-        AuthResponse response = authService.login(request);
+        LoginRequest adminReq = new LoginRequest("admin@agriconnect.org", "Password@123");
+        AuthResponse adminRes = authService.login(adminReq);
 
-        assertThat(response).isNotNull();
-        assertThat(response.getRole()).isEqualTo(Role.ADMIN);
-        assertThat(response.getToken()).isNotBlank();
-        assertThat(response.getEmail()).isEqualTo("admin@agriconnect.org");
+        assertThat(adminRes).isNotNull();
+        assertThat(adminRes.getRole()).isEqualTo(Role.ADMIN);
+        assertThat(adminRes.getToken()).isNotBlank();
+        assertThat(adminRes.getEmail()).isEqualTo("admin@agriconnect.org");
+
+        LoginRequest farmerReq = new LoginRequest("rajesh.patel@kisan.in", "Password@123");
+        AuthResponse farmerRes = authService.login(farmerReq);
+
+        assertThat(farmerRes).isNotNull();
+        assertThat(farmerRes.getRole()).isEqualTo(Role.FARMER);
+        assertThat(farmerRes.getToken()).isNotBlank();
+        assertThat(farmerRes.getEmail()).isEqualTo("rajesh.patel@kisan.in");
+
+        LoginRequest buyerReq = new LoginRequest("vikas.gupta@freshmarts.com", "Password@123");
+        AuthResponse buyerRes = authService.login(buyerReq);
+
+        assertThat(buyerRes).isNotNull();
+        assertThat(buyerRes.getRole()).isEqualTo(Role.BUYER);
+        assertThat(buyerRes.getToken()).isNotBlank();
+        assertThat(buyerRes.getEmail()).isEqualTo("vikas.gupta@freshmarts.com");
     }
 
     @Test

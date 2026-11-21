@@ -193,7 +193,7 @@ export const Login = () => {
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickFill('rajesh.patel@kisan.in', 'Farmer@123')}
+              onClick={() => handleQuickFill('rajesh.patel@kisan.in', 'Password@123')}
               style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
             >
               <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>🌾 Farmer:</span>
@@ -202,7 +202,7 @@ export const Login = () => {
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickFill('vikas.gupta@freshmarts.com', 'Buyer@123')}
+              onClick={() => handleQuickFill('vikas.gupta@freshmarts.com', 'Password@123')}
               style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
             >
               <span style={{ fontWeight: 700, color: 'var(--color-secondary)' }}>🛒 Buyer:</span>
@@ -211,11 +211,11 @@ export const Login = () => {
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              onClick={() => handleQuickFill('priya.sharma@agriconnect.org', 'Admin@123')}
+              onClick={() => handleQuickFill('admin@agriconnect.org', 'Password@123')}
               style={{ justifyContent: 'flex-start', fontSize: '0.75rem' }}
             >
               <span style={{ fontWeight: 700, color: 'var(--color-accent)' }}>⚙️ Admin:</span>
-              <span>priya.sharma@agriconnect.org</span>
+              <span>admin@agriconnect.org</span>
             </button>
           </div>
         </div>
