@@ -15,32 +15,51 @@ The platform serves three user roles:
 
 ## Technology Stack
 
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript (No heavyweight frameworks; accessible and responsive)
-- **Backend**: Java 21, Spring Boot 3.3.4 (Spring Web, Spring Data JPA, HikariCP)
-- **Build Tool**: Apache Maven (with included Maven Wrapper `mvnw` / `mvnw.cmd`)
+- **Frontend**: React 18, Vite 6, React Router DOM v6, Axios, Lucide React (Responsive modern single-page application with Farmer, Buyer, and Admin portals)
+- **Legacy Frontend**: HTML5/CSS3/Vanilla JS archived in `frontend-legacy/`
+- **Backend**: Java 21, Spring Boot 3.3.4 (Spring Web, Spring Security, Spring Data JPA, HikariCP)
+- **Build Tools**: Node.js / npm (Frontend) & Apache Maven with `mvnw` Wrapper (Backend)
 - **Database**: MySQL 8.0 (`agriconnect_db`)
-- **API**: RESTful APIs returning standard JSON payloads
+- **Security**: Stateless JWT Authentication, BCrypt Password Hashing, Role-Based Access Control (RBAC: `FARMER`, `BUYER`, `ADMIN`), IDOR Protection
 - **Architecture**:
   ```
-  Frontend (HTML/CSS/JS)
-         ↓ HTTP / JSON
-    REST API (/api/**)
-         ↓
-     Controller (Spring MVC)
-         ↓
-      Service (Business Logic & Health Checks)
-         ↓
-     Repository (Spring Data JPA)
-         ↓ JDBC / SQL
-   MySQL Database (agriconnect_db)
+     React 18 + Vite SPA (frontend/)
+             ↓ HTTP / Bearer JWT
+        REST API (/api/**)
+             ↓
+         SecurityFilterChain (JWT Auth & RBAC)
+             ↓
+         Controllers (Spring MVC REST)
+             ↓
+         Services (Quality-Aware Matching, Contracts, Logistics, Settlements)
+             ↓
+         Repositories (Spring Data JPA)
+             ↓ JDBC / SQL
+       MySQL 8.0 Database (agriconnect_db)
   ```
 
 ---
 
 ## Current Phase
 
-### Phase 13 — DBMS Queries & Reports (Completed)
-The purpose of Phase 13 is to demonstrate the full relational DBMS capabilities of AgriConnect using the live MySQL production database (`agriconnect_db`), including advanced DML operations, multi-table relational joins, multidimensional aggregations, complex subqueries, SQL views, ACID transaction lifecycles, and relational normalization through 3NF.
+### Phase 15 — React Frontend Migration & Final Integration (Completed)
+The purpose of Phase 15 is to transition the frontend to a modern, responsive, modular **React 18 + Vite** single-page architecture while preserving 100% of the Spring Boot backend, REST API contracts, MySQL schema, and 331 passing tests.
+
+Key accomplishments in Phase 15:
+- **Modular Frontend Architecture (`frontend/`)**:
+  - React 18, Vite 6, Tailwind/CSS variables design system, React Router DOM v6.
+  - Role-based Layouts (`FarmerLayout`, `BuyerLayout`, `AdminLayout`) with responsive collapsable sidebar navigation.
+  - Comprehensive `AuthContext` managing JWT token persistence, auto-refresh of credentials from `/api/auth/me`, and route interception.
+- **Complete Farmer Portal (Stage 2)**:
+  - Overview Dashboard (`/farmer`), Profile (`/farmer/profile`), Harvest Inventory (`/farmer/harvests`, `/farmer/harvests/new`), Quality Reports (`/farmer/quality`), Buyer Demand (`/farmer/requirements`), Orders (`/farmer/orders`), Deliveries (`/farmer/deliveries`), Payments Ledger (`/farmer/payments`), and Market Prices (`/farmer/price-history`).
+- **Complete Buyer Portal (Stage 3)**:
+  - Commercial Dashboard (`/buyer`), Corporate Profile (`/buyer/profile`), Requirements Management (`/buyer/requirements`, `/buyer/requirements/new`, `/buyer/requirements/:id`), Quality-Aware Matching Engine (`/buyer/matches`), Orders (`/buyer/orders`, `/buyer/orders/:id`), Shipments Tracking (`/buyer/deliveries`), Payments & Ledger (`/buyer/payments`), and Mandi Price Intelligence (`/buyer/price-history`).
+- **Complete Admin Operations Center (Stage 4)**:
+  - Command Center (`/admin`), Stakeholder Directory (`/admin/users`, `/admin/users/:id`), Harvest Inventory Audit (`/admin/harvests`), Quality Inspections & Formal Certification (`/admin/quality`), Orders Monitoring (`/admin/orders`, `/admin/orders/:id`), Freight Logistics Fleet (`/admin/deliveries`), Escrow Financial Settlements (`/admin/payments`), Price Intelligence (`/admin/price-history`), and DBMS Operational Reports Reference (`/admin/reports`).
+- **Showcase Integration & QA (Stage 5)**:
+  - End-to-end multi-role demonstration workflow verified against real MySQL database data.
+  - 100% test pass rate preserved (331 backend tests, 0 failures, 0 skipped).
+  - Legacy frontend preserved in `frontend-legacy/` as an archive.
 
 Key accomplishments in Phase 13:
 - **Comprehensive SQL Query Demonstration Library (`database/queries/`)**:
@@ -341,60 +360,59 @@ The application will start on: `http://localhost:8080`.
 
 ## Running the Frontend
 
-The frontend is a lightweight vanilla web application. You can run it using any of the following methods:
+The active production frontend is a modern **React 18 + Vite** application located in `frontend/`.
 
-1. **Directly via Browser**:
-   Double-click `frontend/index.html` or open it directly in your browser. (The backend CORS configuration explicitly permits `null` file origins).
+From the `frontend` directory:
 
-2. **VS Code Live Server**:
-   Right-click `frontend/index.html` in VS Code and select **Open with Live Server** (`http://localhost:5500`).
+```bash
+# Install dependencies
+npm install
 
-3. **Python HTTP Server**:
-   ```bash
-   python -m http.server 3000 --directory frontend
-   ```
-   Open `http://localhost:3000` in your browser.
+# Start Vite development server
+npm run dev
+```
+
+Open `http://localhost:5173` (or the URL printed by Vite) in your browser.
+
+> **Note**: The legacy HTML/CSS/Vanilla-JS frontend is archived for reference in `frontend-legacy/`.
+
+---
+
+## Three-Role Showcase Demonstration Flow
+
+AgriConnect supports three primary roles with verified real-data demonstration workflows:
+
+1. **Farmer Portal (`/farmer`)**:
+   - Log in as `rajesh.patel@kisan.in` / `Password@123`
+   - View crop yields, list new produce lots (`/farmer/harvests/new`), review official lab quality certificates, accept incoming purchase contracts, schedule dispatches, and track payments.
+2. **Buyer Portal (`/buyer`)**:
+   - Log in as `vikas.gupta@freshmarts.com` / `Password@123`
+   - Post procurement requirements, execute the **Quality-Aware Matching Engine** with deterministic 100-point scoring, place binding purchase orders, track freight telematics, and settle invoices.
+3. **Admin Command Center (`/admin`)**:
+   - Log in as `admin@agriconnect.org` / `Password@123`
+   - Monitor platform-wide KPIs, perform 100-point physical quality grading and certification (`/admin/quality`), oversee freight logistics, audit payments, and inspect the DBMS Reports catalog (`/admin/reports`).
 
 ---
 
 ## Testing
 
-### 1. Automated Backend Unit Test
-Run the test suite to verify MVC serialization and endpoint health:
+### 1. Automated Backend Regression Test Suite
+Run the full 331-test suite verifying controllers, matching logic, security guards, and database views:
 ```bash
 cd backend
 .\mvnw.cmd test
 ```
 
-### 2. Testing the REST API
-With the backend running, send a GET request:
+### 2. Frontend Production Build
+Validate that the entire React SPA compiles cleanly:
 ```bash
-curl http://localhost:8080/api/health
+cd frontend
+npm run build
 ```
-
-#### Expected Result
-HTTP `200 OK` with JSON response:
-```json
-{
-  "status": "UP",
-  "application": "AgriConnect",
-  "phase": "Phase 1",
-  "database": "Connected (agriconnect_db)",
-  "timestamp": "2026-09-23T22:52:30.123456"
-}
-```
-
-### 3. Testing Frontend Connection
-1. Open `frontend/index.html`.
-2. The status card will show:
-   - **Backend Status**: `Backend Status: Connected ✓`
-   - **Database Connection**: `Database: Connected (agriconnect_db) ✓`
-   - **Active Phase**: `Phase 1`
-3. Click **↻ Refresh Status** to verify real-time polling.
 
 ---
 
-## Future Phases Roadmap
+## Project Roadmap
 
 - [x] **Phase 1 — Project Foundation and Environment Setup** *(Completed)*
 - [x] **Phase 2 — Database Design & Relational Schema** *(Completed)*
@@ -410,4 +428,4 @@ HTTP `200 OK` with JSON response:
 - [x] **Phase 12 — Admin Dashboard** *(Completed)*
 - [x] **Phase 13 — DBMS Queries & Reports** *(Completed)*
 - [x] **Phase 14 — Security & Validation** *(Completed)*
-- [ ] **Phase 15 — Final UI/Integration**
+- [x] **Phase 15 — React Frontend Migration & Final Integration** *(Completed)*
