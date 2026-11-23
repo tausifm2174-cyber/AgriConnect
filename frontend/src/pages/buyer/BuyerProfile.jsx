@@ -92,20 +92,20 @@ export const BuyerProfile = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div className="p-3 bg-gray-50 rounded-lg">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Enterprise Name</span>
-                <p className="font-bold text-gray-900 mt-0.5">{buyerData.businessName || 'Independent Wholesale Buyer'}</p>
+                <p className="font-bold text-gray-900 mt-0.5">{buyerData.businessName || 'Not specified'}</p>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <span className="text-xs font-semibold text-gray-500 uppercase">Commercial Category</span>
                 <p className="font-semibold text-gray-900 mt-0.5">
-                  {buyerData.businessType ? buyerData.businessType.replace('_', ' ') : 'COMMERCIAL_BUYER'}
+                  {buyerData.businessType ? buyerData.businessType.replace('_', ' ') : 'COMMERCIAL BUYER'}
                 </p>
               </div>
 
               <div className="p-3 bg-gray-50 rounded-lg">
                 <span className="text-xs font-semibold text-gray-500 uppercase">GSTIN / Tax Identifier</span>
                 <p className="font-mono font-bold text-gray-900 mt-0.5">
-                  {buyerData.gstin || '27AAACG0123M1Z5 (Verified)'}
+                  {buyerData.gstin || 'Not provided'}
                 </p>
               </div>
 
@@ -120,16 +120,16 @@ export const BuyerProfile = () => {
             <div className="p-3 bg-gray-50 rounded-lg text-sm">
               <span className="text-xs font-semibold text-gray-500 uppercase">Default Delivery / Warehouse Destination</span>
               <p className="text-gray-800 font-medium mt-1 leading-relaxed">
-                {buyerData.businessAddress || 'Central Agricultural Receiving Terminal, APMC Market Yard Hub'}
+                {buyerData.businessAddress || 'Not specified'}
               </p>
             </div>
           </div>
 
           {/* Compliance & Quality Protocol Notice */}
           <div className="p-4 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs text-emerald-800 leading-relaxed">
-            <h4 className="font-bold text-emerald-950 mb-1">AgriConnect Buyer Guarantee & Escrow Compliance</h4>
+            <h4 className="font-bold text-emerald-950 mb-1">AgriConnect Buyer Trade Protection</h4>
             <p>
-              All purchases initiated from this account are protected under AgriConnect's Phase 5 verified quality grading standards and automated escrow settlement protocol. Produce discrepancies can be resolved within 48 hours of shipment delivery receipt.
+              All purchases initiated from this account are backed by AgriConnect verified quality inspection certifications. Order dispatches and delivery milestones are tracked with transaction audit references.
             </p>
           </div>
         </div>

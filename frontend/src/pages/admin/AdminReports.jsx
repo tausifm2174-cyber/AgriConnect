@@ -1,28 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import adminApi from '../../services/adminApi';
-import LoadingSpinner from '../../components/LoadingSpinner';
-import ErrorMessage from '../../components/ErrorMessage';
 import {
   FileText,
   Database,
-  Layers,
   Code,
-  Table,
+  Layers,
+  BarChart,
   CheckCircle2,
-  RefreshCw,
-  ExternalLink,
-  ShieldCheck,
-  TrendingUp,
-  CreditCard,
-  ShoppingBag,
-  Truck,
-  Users
+  Copy,
+  Check
 } from 'lucide-react';
 
 export const AdminReports = () => {
   const [activeTab, setActiveTab] = useState('views');
   const [dashboardStats, setDashboardStats] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [copiedIndex, setCopiedIndex] = useState(null);
+  const [expandedSql, setExpandedSql] = useState({});
+
+  const toggleSql = (idx) => {
+    setExpandedSql((prev) => ({ ...prev, [idx]: !prev[idx] }));
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -30,29 +27,34 @@ export const AdminReports = () => {
         const res = await adminApi.getDashboard();
         setDashboardStats(res.data?.data || res.data || null);
       } catch (err) {
-        console.error('Failed to load dashboard stats for reports:', err);
-      } finally {
-        setLoading(false);
+        console.error('Failed to load report metrics:', err);
       }
     };
     fetchStats();
   }, []);
 
+  const handleCopy = (sqlText, idx) => {
+    navigator.clipboard.writeText(sqlText);
+    setCopiedIndex(idx);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
   const reportCategories = [
     {
       id: 'views',
-      label: 'Database Views (Phase 13)',
+      label: 'Database Views',
       icon: Layers,
-      description: 'Persistent relational database views created for optimized multi-table joining, analytical rollups, and reporting.',
+      description: 'Production relational views defined in schema/03_database_views.sql providing encapsulated projections and security boundaries.',
       items: [
         {
-          name: 'vw_verified_harvests',
-          description: 'Combines harvests with verified quality assessments, official scores, grades, and producing farmer credentials.',
-          sql: `CREATE OR REPLACE VIEW vw_verified_harvests AS
+          name: 'vw_active_harvests_quality',
+          description: 'Indexes all AVAILABLE harvest lots joined with VERIFIED quality inspection certifications and farmer identity.',
+          sql: `CREATE OR REPLACE VIEW vw_active_harvests_quality AS
 SELECT
     h.harvest_id, h.farmer_id, u.full_name AS farmer_name,
     c.crop_id, c.crop_name, c.category AS crop_category,
-    h.available_quantity, h.price_per_kg, h.harvest_date, h.location,
+    h.quantity AS initial_quantity, h.available_quantity,
+    h.price_per_kg, h.harvest_date, h.status AS harvest_status,
     qa.assessment_id, qa.quality_score, qa.quality_grade, qa.verification_status
 FROM harvests h
 JOIN users u ON h.farmer_id = u.user_id
@@ -120,81 +122,63 @@ LEFT JOIN payments p ON o.order_id = p.order_id;`,
 SELECT h.harvest_id, c.crop_name, h.available_quantity, h.price_per_kg
 FROM harvests h
 JOIN crops c ON h.crop_id = c.crop_id
-WHERE h.status = 'AVAILABLE' AND h.price_per_kg <= 50.00;`
+WHERE h.status = 'AVAILABLE' AND h.price_per_kg <= 45.00;`
         },
         {
-          name: 'JOIN Queries (02_join_queries.sql)',
-          description: 'Multi-table INNER, LEFT, and self-joins enforcing relational integrity across Users, Profiles, Harvests, Orders, and Deliveries.',
-          sql: `-- Sample: 5-table relational join for complete order fulfillment audit
-SELECT o.order_id, b.full_name AS buyer, f.full_name AS farmer, c.crop_name, d.delivery_status, p.payment_status
-FROM orders o
-JOIN users b ON o.buyer_id = b.user_id
-JOIN harvests h ON o.harvest_id = h.harvest_id
-JOIN users f ON h.farmer_id = f.user_id
-JOIN crops c ON h.crop_id = c.crop_id
-LEFT JOIN deliveries d ON o.order_id = d.order_id
-LEFT JOIN payments p ON o.order_id = p.order_id;`
-        },
-        {
-          name: 'Aggregate Queries (03_aggregate_queries.sql)',
-          description: 'Statistical aggregation using COUNT, SUM, AVG, MIN, MAX, GROUP BY, and HAVING for business intelligence.',
-          sql: `-- Sample: Total trading volume and average order size per crop
-SELECT c.crop_name, COUNT(o.order_id) AS total_orders, SUM(o.quantity) AS total_volume_kg, SUM(o.total_amount) AS gross_revenue
+          name: 'Joins and Aggregations (02_join_queries.sql & 03_aggregation_queries.sql)',
+          description: 'Multi-table INNER and LEFT joins computing order totals, delivery milestones, and quality grade breakdowns.',
+          sql: `-- Multi-table aggregation: Total revenue and fulfilled orders per crop
+SELECT
+    c.crop_name,
+    COUNT(DISTINCT o.order_id) AS total_orders,
+    SUM(o.quantity) AS total_volume_kg,
+    SUM(o.total_amount) AS total_gross_value
 FROM orders o
 JOIN harvests h ON o.harvest_id = h.harvest_id
 JOIN crops c ON h.crop_id = c.crop_id
-WHERE o.order_status NOT IN ('CANCELLED', 'REJECTED')
+WHERE o.order_status IN ('ACCEPTED', 'DELIVERED')
 GROUP BY c.crop_name
-HAVING gross_revenue > 0;`
+ORDER BY total_gross_value DESC;`
         },
         {
-          name: 'Subqueries & Correlated Queries (04_subqueries.sql)',
-          description: 'Nested and correlated subqueries with EXISTS, IN, and scalar comparisons for advanced filtering.',
-          sql: `-- Sample: Find farmers whose average harvest quality exceeds platform average
-SELECT u.user_id, u.full_name, AVG(qa.quality_score) AS avg_score
-FROM users u
-JOIN harvests h ON u.user_id = h.farmer_id
-JOIN quality_assessments qa ON h.harvest_id = qa.harvest_id
-WHERE qa.verification_status = 'VERIFIED'
-GROUP BY u.user_id, u.full_name
-HAVING avg_score > (SELECT AVG(quality_score) FROM quality_assessments WHERE verification_status = 'VERIFIED');`
+          name: 'Subqueries and Analytical Filtering (04_subqueries.sql)',
+          description: 'Correlated and nested subqueries identifying top-performing farmers, above-average prices, and unmet buyer requirements.',
+          sql: `-- Subquery: Identify harvests priced strictly below their crop's historical average
+SELECT h.harvest_id, c.crop_name, h.price_per_kg, sub.avg_crop_price
+FROM harvests h
+JOIN crops c ON h.crop_id = c.crop_id
+JOIN (
+    SELECT crop_id, ROUND(AVG(effective_price), 2) AS avg_crop_price
+    FROM price_history
+    GROUP BY crop_id
+) sub ON h.crop_id = sub.crop_id
+WHERE h.price_per_kg < sub.avg_crop_price;`
         }
       ]
     },
     {
-      id: 'domain',
-      label: 'Domain Operational Reports',
-      icon: Table,
-      description: 'Domain-specific analytical reports organized by business functional domain in the database.',
+      id: 'reports',
+      label: 'Operational Reports',
+      icon: BarChart,
+      description: 'Business-level operational reports used by platform administrators to monitor quality compliance, fulfillment, and revenue.',
       items: [
         {
-          name: 'Quality Management Reports (05_quality_reports.sql)',
-          description: 'Inspection pass/fail rates, parameter score averages (freshness, appearance, ripeness), and grade distribution (A, B, C).',
-          sql: `SELECT quality_grade, COUNT(*) AS count, ROUND(AVG(quality_score), 2) AS avg_score, ROUND(AVG(damage_percentage), 2) AS avg_damage
-FROM quality_assessments
-WHERE verification_status = 'VERIFIED'
-GROUP BY quality_grade;`
+          name: 'Quality Assessment Reports (05_quality_reports.sql)',
+          description: 'Distribution of produce quality grades across registered crop categories, inspection pass rates, and rejection tracking.',
+          sql: `SELECT c.crop_name, qa.quality_grade, COUNT(*) AS count_lots,
+       ROUND(AVG(qa.quality_score), 2) AS avg_score
+FROM quality_assessments qa
+JOIN harvests h ON qa.harvest_id = h.harvest_id
+JOIN crops c ON h.crop_id = c.crop_id
+GROUP BY c.crop_name, qa.quality_grade
+ORDER BY c.crop_name, qa.quality_grade;`
         },
         {
-          name: 'Order Lifecycle Reports (06_order_reports.sql)',
-          description: 'Order fulfillment rates, order size distribution, cancellation analysis, and buyer order volume rankings.',
-          sql: `SELECT order_status, COUNT(*) AS total_orders, SUM(total_amount) AS total_value
+          name: 'Order Lifecycle Tracking (06_order_reports.sql)',
+          description: 'Fulfillment conversion pipeline: tracking orders from PENDING acceptance to DISPATCH, TRANSIT, and DELIVERY.',
+          sql: `SELECT order_status, COUNT(*) AS count_orders, SUM(total_amount) AS total_value
 FROM orders
 GROUP BY order_status;`
-        },
-        {
-          name: 'Logistics Fleet Reports (07_delivery_reports.sql)',
-          description: 'Transit durations, delivery success rates, in-transit delays, and route destination breakdown.',
-          sql: `SELECT delivery_status, COUNT(*) AS count, COUNT(tracking_number) AS with_tracking
-FROM deliveries
-GROUP BY delivery_status;`
-        },
-        {
-          name: 'Payment Settlement Reports (08_payment_reports.sql)',
-          description: 'Reconciliation status, payment method share (UPI vs Bank Transfer vs Cash), and outstanding receivables.',
-          sql: `SELECT payment_method, payment_status, COUNT(*) AS count, SUM(amount) AS total_settled
-FROM payments
-GROUP BY payment_method, payment_status;`
         },
         {
           name: 'Mandi Price Reports (09_price_reports.sql)',
@@ -241,84 +225,193 @@ COMMIT;`
   const currentCategory = reportCategories.find((c) => c.id === activeTab) || reportCategories[0];
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">DBMS Queries & Operational Reports</h1>
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-gray-900 text-white">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h1 className="page-title">
+              <FileText size={26} color="var(--color-primary)" />
+              <span>DBMS Queries & Operational Reports</span>
+            </h1>
+            <span style={{
+              display: 'inline-block',
+              padding: '0.2rem 0.5rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              backgroundColor: 'var(--color-bg-alt)',
+              color: 'var(--color-text)',
+              border: '1px solid var(--color-border)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
               Phase 13 Reference
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="page-subtitle">
             Documentation and operational catalog of all relational views, aggregation queries, subqueries, and ACID transactions.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold">
-          <Database size={14} />
+        <div style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.4rem',
+          padding: '0.45rem 0.85rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          color: 'var(--color-primary)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-md)',
+          fontSize: '0.75rem',
+          fontWeight: 700
+        }}>
+          <Database size={15} />
           <span>MySQL 8.0 • InnoDB Engine</span>
         </div>
       </div>
 
       {/* Category Navigation Tabs */}
-      <div className="flex flex-wrap gap-2 border-b border-gray-200 pb-2">
-        {reportCategories.map((cat) => {
-          const Icon = cat.icon;
-          const isActive = activeTab === cat.id;
+      <div className="filter-bar" style={{ padding: '0.75rem 1rem' }}>
+        <div className="tab-group">
+          {reportCategories.map((cat) => {
+            const Icon = cat.icon;
+            const isActive = activeTab === cat.id;
 
-          return (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => setActiveTab(cat.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                isActive
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              <Icon size={14} />
-              <span>{cat.label}</span>
-            </button>
-          );
-        })}
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setActiveTab(cat.id)}
+                className={`tab-btn ${isActive ? 'active' : ''}`}
+                style={{ padding: '0.5rem 1rem' }}
+              >
+                <Icon size={14} />
+                <span>{cat.label}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Category Header Banner */}
-      <div className="p-4 bg-white rounded-xl border border-gray-200 shadow-sm flex items-start gap-3">
-        <div className="p-2.5 bg-gray-100 rounded-lg text-gray-700">
-          <currentCategory.icon size={22} />
+      <div className="info-banner" style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}>
+        <div style={{
+          width: '38px',
+          height: '38px',
+          borderRadius: 'var(--radius-md)',
+          backgroundColor: 'var(--color-bg-alt)',
+          color: 'var(--color-text)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0
+        }}>
+          <currentCategory.icon size={20} />
         </div>
         <div>
-          <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">{currentCategory.label}</h2>
-          <p className="text-xs text-gray-500 mt-0.5">{currentCategory.description}</p>
+          <h2 style={{ fontSize: '0.875rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text)' }}>
+            {currentCategory.label}
+          </h2>
+          <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.15rem' }}>
+            {currentCategory.description}
+          </p>
         </div>
       </div>
 
       {/* Report Cards List */}
-      <div className="space-y-4">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
         {currentCategory.items.map((item, idx) => (
-          <div key={idx} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-            <div className="p-4 bg-gray-50/70 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div key={idx} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+            <div style={{
+              padding: '1rem 1.25rem',
+              backgroundColor: 'var(--color-bg)',
+              borderBottom: '1px solid var(--color-border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '0.75rem'
+            }}>
               <div>
-                <h3 className="text-sm font-bold text-gray-900 font-mono">{item.name}</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+                <h3 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--color-text)', fontFamily: 'monospace' }}>
+                  {item.name}
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.2rem' }}>
+                  {item.description}
+                </p>
               </div>
-              {item.liveMetric && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 self-start sm:self-auto shrink-0">
-                  <CheckCircle2 size={13} />
-                  <span>{item.liveMetric}</span>
-                </span>
-              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {item.liveMetric && (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    padding: '0.25rem 0.65rem',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    backgroundColor: 'var(--color-primary-light)',
+                    color: 'var(--color-primary)',
+                    border: '1px solid var(--color-primary-border)'
+                  }}>
+                    <CheckCircle2 size={13} />
+                    <span>{item.liveMetric}</span>
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => toggleSql(idx)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <Code size={13} />
+                  <span>{expandedSql[idx] ? 'Hide SQL' : 'View SQL'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleCopy(item.sql, idx)}
+                  className="btn btn-secondary btn-sm"
+                  style={{ padding: '0.3rem 0.65rem', fontSize: '0.75rem' }}
+                  title="Copy SQL"
+                >
+                  {copiedIndex === idx ? (
+                    <>
+                      <Check size={12} color="var(--color-primary)" />
+                      <span style={{ color: 'var(--color-primary)' }}>Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={12} />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="p-4 bg-slate-900 text-slate-100 overflow-x-auto">
-              <pre className="text-xs font-mono leading-relaxed text-slate-200 whitespace-pre">
-                <code>{item.sql}</code>
-              </pre>
+            {/* Business Analytics Insight */}
+            <div style={{ padding: '1rem 1.25rem', backgroundColor: '#ffffff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem', color: '#475569' }}>
+                <span style={{ fontWeight: 700, color: '#0f172a' }}>Analytics Focus:</span>
+                <span>Production business query audited for transactional consistency & performance.</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                Relational Model: MySQL InnoDB • Isolation: READ COMMITTED
+              </div>
             </div>
+
+            {/* Collapsible Relational SQL View */}
+            {expandedSql[idx] && (
+              <div className="code-block-wrapper" style={{ borderTop: '1px solid var(--color-border)' }}>
+                <pre>
+                  <code>{item.sql}</code>
+                </pre>
+              </div>
+            )}
           </div>
         ))}
       </div>

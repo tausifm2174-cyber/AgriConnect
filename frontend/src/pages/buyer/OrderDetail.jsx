@@ -19,6 +19,7 @@ export const OrderDetail = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState(null);
 
   useEffect(() => {
     loadOrderDetails();
@@ -51,6 +52,7 @@ export const OrderDetail = () => {
     e.preventDefault();
     try {
       setCancelling(true);
+      setCancelError(null);
       await buyerApi.cancelOrder(id, {
         reason: cancelReason.trim() || 'Cancelled by buyer before farmer acceptance'
       });
@@ -58,7 +60,7 @@ export const OrderDetail = () => {
       loadOrderDetails();
     } catch (err) {
       console.error('Error cancelling order:', err);
-      alert(err.response?.data?.message || 'Failed to cancel order.');
+      setCancelError(err.response?.data?.message || 'Failed to cancel order.');
     } finally {
       setCancelling(false);
     }
@@ -268,11 +270,11 @@ export const OrderDetail = () => {
         </div>
       </div>
 
-      {/* Financial Settlement & Payment Balance */}
+      {/* Payment Summary */}
       {paymentSummary && (
         <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
           <div className="flex items-center justify-between border-b border-gray-100 pb-2">
-            <h3 className="font-bold text-gray-900 text-sm">Escrow & Payment Settlement</h3>
+            <h3 className="font-bold text-gray-900 text-sm">Order Payments & Balance</h3>
             <Link to="/buyer/payments" className="text-xs font-semibold text-emerald-600 hover:underline">
               Manage Payments &rarr;
             </Link>
@@ -310,6 +312,11 @@ export const OrderDetail = () => {
           maxWidth="max-w-md"
         >
           <form onSubmit={handleConfirmCancel} className="space-y-4 text-sm">
+            {cancelError && (
+              <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '0.375rem', fontSize: '0.8rem' }}>
+                {cancelError}
+              </div>
+            )}
             <p className="text-xs text-gray-600">
               Please enter the reason for cancellation before the farmer accepts this order:
             </p>

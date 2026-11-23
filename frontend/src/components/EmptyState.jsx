@@ -14,12 +14,13 @@ export const EmptyState = ({
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '3rem 1.5rem',
+      padding: '3.5rem 1.5rem',
       backgroundColor: 'var(--color-surface)',
       border: '1px dashed var(--color-border)',
       borderRadius: 'var(--radius-lg)',
       textAlign: 'center',
-      margin: '1rem 0'
+      margin: '1.25rem 0',
+      width: '100%'
     }}>
       <div style={{
         width: '56px',
@@ -30,13 +31,14 @@ export const EmptyState = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: '1rem'
+        marginBottom: '1rem',
+        flexShrink: 0
       }}>
-        <Icon size={28} />
+        <Icon size={32} style={{ width: 32, height: 32, flexShrink: 0 }} />
       </div>
 
       <h4 style={{
-        fontSize: '1rem',
+        fontSize: '1.05rem',
         fontWeight: 700,
         color: 'var(--color-text)',
         marginBottom: '0.35rem'
@@ -47,8 +49,9 @@ export const EmptyState = ({
       <p style={{
         fontSize: '0.875rem',
         color: 'var(--color-text-secondary)',
-        maxWidth: '380px',
-        marginBottom: actionLabel ? '1.25rem' : 0
+        maxWidth: '420px',
+        lineHeight: 1.5,
+        marginBottom: actionLabel && onAction ? '1.5rem' : 0
       }}>
         {description}
       </p>
@@ -58,6 +61,7 @@ export const EmptyState = ({
           type="button"
           className="btn btn-primary btn-sm"
           onClick={onAction}
+          style={{ marginTop: '0.5rem' }}
         >
           {actionLabel}
         </button>

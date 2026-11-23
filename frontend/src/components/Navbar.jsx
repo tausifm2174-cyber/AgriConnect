@@ -7,8 +7,8 @@ export const Navbar = ({ onToggleSidebar, title }) => {
 
   const roleLabels = {
     FARMER: { text: 'Farmer Portal', bg: 'var(--color-primary-light)', color: 'var(--color-primary)' },
-    BUYER: { text: 'Buyer Portal', bg: 'var(--color-secondary-light)', color: 'var(--color-secondary)' },
-    ADMIN: { text: 'Admin Console', bg: '#f1f5f9', color: '#334155' },
+    BUYER: { text: 'Buyer Portal', bg: '#eff6ff', color: '#2563eb' },
+    ADMIN: { text: 'Admin Console', bg: '#f1f5f9', color: '#0f172a' },
   };
 
   const currentRole = roleLabels[role] || { text: role, bg: 'var(--color-bg-alt)', color: 'var(--color-text)' };
@@ -77,8 +77,8 @@ export const Navbar = ({ onToggleSidebar, title }) => {
             width: '34px',
             height: '34px',
             borderRadius: '50%',
-            backgroundColor: 'var(--color-primary-light)',
-            color: 'var(--color-primary)',
+            backgroundColor: currentRole.bg,
+            color: currentRole.color,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

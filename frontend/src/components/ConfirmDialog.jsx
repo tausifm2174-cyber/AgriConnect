@@ -8,11 +8,19 @@ export const ConfirmDialog = ({
   onConfirm,
   title = 'Confirm Action',
   message = 'Are you sure you want to proceed?',
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  confirmText = 'Confirm',
+  cancelLabel,
+  cancelText = 'Cancel',
   isDanger = false,
-  isLoading = false
+  confirmVariant,
+  isLoading = false,
+  loading = false,
 }) => {
+  const finalConfirmLabel = confirmLabel || confirmText;
+  const finalCancelLabel = cancelLabel || cancelText;
+  const finalIsDanger = isDanger || confirmVariant === 'danger';
+  const finalLoading = isLoading || loading;
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="420px">
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
@@ -20,8 +28,8 @@ export const ConfirmDialog = ({
           width: '40px',
           height: '40px',
           borderRadius: '50%',
-          backgroundColor: isDanger ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)',
-          color: isDanger ? 'var(--color-danger)' : 'var(--color-warning)',
+          backgroundColor: finalIsDanger ? 'var(--color-danger-bg)' : 'var(--color-warning-bg)',
+          color: finalIsDanger ? 'var(--color-danger)' : 'var(--color-warning)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -49,17 +57,17 @@ export const ConfirmDialog = ({
           type="button"
           className="btn btn-secondary"
           onClick={onClose}
-          disabled={isLoading}
+          disabled={finalLoading}
         >
-          {cancelLabel}
+          {finalCancelLabel}
         </button>
         <button
           type="button"
-          className={`btn ${isDanger ? 'btn-danger' : 'btn-primary'}`}
+          className={`btn ${finalIsDanger ? 'btn-danger' : 'btn-primary'}`}
           onClick={onConfirm}
-          disabled={isLoading}
+          disabled={finalLoading}
         >
-          {isLoading ? 'Processing...' : confirmLabel}
+          {finalLoading ? 'Processing...' : finalConfirmLabel}
         </button>
       </div>
     </Modal>

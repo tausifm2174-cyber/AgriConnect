@@ -81,19 +81,15 @@ export const AdminOrders = () => {
       {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      <div className="filter-bar">
         {/* Status Filter Tabs */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="tab-group">
           {statuses.map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                statusFilter === st
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === st ? 'active' : ''}`}
             >
               {st}
             </button>
@@ -101,20 +97,20 @@ export const AdminOrders = () => {
         </div>
 
         {/* Search Input */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="search-wrapper">
+          <Search size={16} className="search-icon" />
           <input
             type="text"
             placeholder="Search order #, buyer, farmer, crop..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-purple-500 focus:outline-none w-56 sm:w-72"
+            className="search-input"
           />
         </div>
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="table-wrapper">
         {loading ? (
           <div className="py-16">
             <LoadingSpinner message="Querying commercial order ledger..." />
@@ -124,68 +120,66 @@ export const AdminOrders = () => {
             No marketplace orders found matching the filter criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Order ID</th>
-                  <th className="py-3 px-4">Crop Commodity</th>
-                  <th className="py-3 px-4">Commercial Buyer</th>
-                  <th className="py-3 px-4">Farmer / Producer</th>
-                  <th className="py-3 px-4">Volume</th>
-                  <th className="py-3 px-4">Unit Price</th>
-                  <th className="py-3 px-4">Total Amount</th>
-                  <th className="py-3 px-4">Contract Date</th>
-                  <th className="py-3 px-4">Lifecycle Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Order ID</th>
+                <th>Crop Commodity</th>
+                <th>Commercial Buyer</th>
+                <th>Farmer / Producer</th>
+                <th>Volume</th>
+                <th>Unit Price</th>
+                <th>Total Amount</th>
+                <th>Contract Date</th>
+                <th>Lifecycle Status</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.map((o) => (
+                <tr key={o.orderId}>
+                  <td className="font-mono font-bold text-gray-500">#ORD-{o.orderId}</td>
+                  <td>
+                    <div className="font-bold text-gray-900">{o.cropName}</div>
+                    <span className="text-[10px] text-gray-400 font-mono">Lot #HAR-{o.harvestId}</span>
+                  </td>
+                  <td>
+                    <div className="font-semibold text-gray-900">{o.buyerName}</div>
+                    <div className="text-[10px] text-gray-500">{o.businessName || 'Direct Buyer'}</div>
+                  </td>
+                  <td>
+                    <div className="font-semibold text-gray-900">{o.farmerName}</div>
+                    <div className="text-[10px] text-gray-500">{o.farmLocation || 'Farm gate'}</div>
+                  </td>
+                  <td className="font-bold text-gray-900">
+                    {Number(o.quantity).toLocaleString()} kg
+                  </td>
+                  <td className="font-mono text-gray-700">
+                    ₹{Number(o.agreedPricePerKg).toFixed(2)}/kg
+                  </td>
+                  <td className="font-black text-emerald-700">
+                    ₹{Number(o.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </td>
+                  <td className="text-gray-500">
+                    {o.orderDate ? new Date(o.orderDate).toLocaleDateString('en-IN') : '—'}
+                  </td>
+                  <td>
+                    <StatusBadge status={o.status} />
+                  </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/orders/${o.orderId}`)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      <Eye size={12} />
+                      <span>Inspect &rarr;</span>
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredOrders.map((o) => (
-                  <tr key={o.orderId} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-gray-500">#ORD-{o.orderId}</td>
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-gray-900">{o.cropName}</div>
-                      <span className="text-[10px] text-gray-400 font-mono">Lot #HAR-{o.harvestId}</span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-gray-900">{o.buyerName}</div>
-                      <div className="text-[10px] text-gray-500">{o.businessName || 'Direct Buyer'}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-gray-900">{o.farmerName}</div>
-                      <div className="text-[10px] text-gray-500">{o.farmLocation || 'Farm gate'}</div>
-                    </td>
-                    <td className="py-3 px-4 font-bold text-gray-900">
-                      {Number(o.quantity).toLocaleString()} kg
-                    </td>
-                    <td className="py-3 px-4 font-mono text-gray-700">
-                      ₹{Number(o.agreedPricePerKg).toFixed(2)}/kg
-                    </td>
-                    <td className="py-3 px-4 font-black text-emerald-700">
-                      ₹{Number(o.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </td>
-                    <td className="py-3 px-4 text-gray-500">
-                      {o.orderDate ? new Date(o.orderDate).toLocaleDateString('en-IN') : '—'}
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={o.status} />
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/admin/orders/${o.orderId}`)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-md transition-colors"
-                      >
-                        <Eye size={12} />
-                        <span>Inspect &rarr;</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

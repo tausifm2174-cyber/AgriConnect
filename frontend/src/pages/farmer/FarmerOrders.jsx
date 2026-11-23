@@ -8,6 +8,17 @@ import ConfirmDialog from '../../components/ConfirmDialog';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import {
+  ShoppingBag,
+  RefreshCw,
+  Check,
+  X,
+  Clock,
+  Truck,
+  CreditCard,
+  Search,
+  AlertTriangle
+} from 'lucide-react';
 
 export const FarmerOrders = () => {
   const navigate = useNavigate();
@@ -29,6 +40,7 @@ export const FarmerOrders = () => {
   const [acceptConfirmOpen, setAcceptConfirmOpen] = useState(false);
   const [orderToAccept, setOrderToAccept] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState(null);
 
   useEffect(() => {
     loadOrders();
@@ -69,13 +81,14 @@ export const FarmerOrders = () => {
       loadOrders();
     } catch (err) {
       console.error('Error accepting order:', err);
-      alert(err.response?.data?.message || 'Failed to accept order.');
+      setActionError(err.response?.data?.message || 'Failed to accept order.');
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleOpenReject = (order) => {
+    setActionError(null);
     setOrderToReject(order);
     setRejectReason('');
     setRejectModalOpen(true);
@@ -86,6 +99,7 @@ export const FarmerOrders = () => {
     if (!orderToReject) return;
     try {
       setActionLoading(true);
+      setActionError(null);
       await farmerApi.rejectOrder(orderToReject.orderId, {
         reason: rejectReason.trim() || 'Rejected by farmer due to capacity or scheduling constraints'
       });
@@ -97,7 +111,7 @@ export const FarmerOrders = () => {
       loadOrders();
     } catch (err) {
       console.error('Error rejecting order:', err);
-      alert(err.response?.data?.message || 'Failed to reject order.');
+      setActionError(err.response?.data?.message || 'Failed to reject order.');
     } finally {
       setActionLoading(false);
     }
@@ -140,100 +154,139 @@ export const FarmerOrders = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Incoming Purchase Orders</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="page-title">
+            <ShoppingBag size={26} color="var(--color-primary)" />
+            <span>Incoming Purchase Orders</span>
+          </h1>
+          <p className="page-subtitle">
             Review, accept, or reject commercial buyer procurement offers for your verified harvest lots.
           </p>
         </div>
         <button
+          type="button"
           onClick={loadOrders}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+          className="btn btn-secondary"
         >
-          <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Orders
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh Orders</span>
         </button>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="text-sm font-medium">{actionSuccess}</span>
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.25rem',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+            <Check size={18} />
+            <span>{actionSuccess}</span>
           </div>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          <button
+            type="button"
+            onClick={() => setActionSuccess(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {actionError && (
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          backgroundColor: 'var(--color-danger-bg)',
+          border: '1px solid var(--color-danger-border)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.25rem',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-danger)', fontWeight: 600 }}>
+            <AlertTriangle size={18} />
+            <span>{actionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-danger)' }}
+          >
+            <X size={16} />
           </button>
         </div>
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid-cards">
         <DashboardCard
           title="Total Orders"
-          value={totalOrders}
-          subtitle="All contract inquiries"
-          icon="shopping-bag"
-          color="emerald"
+          value={loading ? '...' : totalOrders}
+          description="All contract inquiries"
+          icon={ShoppingBag}
+          variant="primary"
         />
         <DashboardCard
           title="Pending Approval"
-          value={pendingOrders}
-          subtitle="Awaiting your response"
-          icon="clock"
-          color={pendingOrders > 0 ? "amber" : "gray"}
+          value={loading ? '...' : pendingOrders}
+          description={pendingOrders > 0 ? "Awaiting your response" : "Inbox up to date"}
+          icon={Clock}
+          variant="secondary"
+          trend={pendingOrders > 0 ? `+${pendingOrders}` : null}
+          trendLabel={pendingOrders > 0 ? 'Pending' : null}
         />
         <DashboardCard
           title="Active Contracts"
-          value={activeOrders}
-          subtitle="Accepted or in transit"
-          icon="truck"
-          color="blue"
+          value={loading ? '...' : activeOrders}
+          description="Accepted or in transit"
+          icon={Truck}
+          variant="accent"
         />
         <DashboardCard
           title="Contract Volume"
-          value={`₹${totalRevenue.toLocaleString('en-IN')}`}
-          subtitle={`${deliveredOrders} completed deliveries`}
-          icon="currency-rupee"
-          color="emerald"
+          value={loading ? '...' : `₹${Number(totalRevenue).toLocaleString('en-IN')}`}
+          description={`${deliveredOrders} completed deliveries`}
+          icon={CreditCard}
+          variant="success"
         />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {['ALL', 'PENDING', 'ACCEPTED', 'DELIVERED', 'CLOSED'].map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === tab
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
             >
               {tab === 'CLOSED' ? 'Cancelled / Rejected' : tab}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="search-wrapper">
+          <span className="search-icon">
+            <Search size={16} />
+          </span>
           <input
             type="text"
             placeholder="Search crop, buyer, order #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="search-input"
           />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
@@ -263,7 +316,7 @@ export const FarmerOrders = () => {
                   <th className="px-4 py-3.5 text-left">Buyer</th>
                   <th className="px-4 py-3.5 text-left">Produce & Grade</th>
                   <th className="px-4 py-3.5 text-right">Quantity & Terms</th>
-                  <th className="px-4 py-3.5 text-right">Total Payout</th>
+                  <th className="px-4 py-3.5 text-right">Total Amount</th>
                   <th className="px-4 py-3.5 text-center">Status</th>
                   <th className="px-4 py-3.5 text-right">Actions</th>
                 </tr>

@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import farmerApi from '../../services/farmerApi';
 import ErrorMessage from '../../components/ErrorMessage';
 import LoadingSpinner from '../../components/LoadingSpinner';
+import SelectField from '../../components/SelectField';
+import InputField from '../../components/InputField';
 import { Wheat, Plus, ArrowLeft, CheckCircle2, Calendar, MapPin, Tag } from 'lucide-react';
 
 export const NewHarvest = () => {
@@ -122,92 +124,69 @@ export const NewHarvest = () => {
             ) : (
               <form onSubmit={handleSubmit}>
                 {/* Crop Selection */}
-                <div className="form-group">
-                  <label className="form-label" htmlFor="cropId">
-                    Select Agricultural Crop *
-                  </label>
-                  <select
-                    id="cropId"
-                    className="form-control"
-                    value={cropId}
-                    onChange={(e) => setCropId(e.target.value)}
-                    required
-                  >
-                    {crops.map((c) => (
-                      <option key={c.cropId} value={c.cropId}>
-                        {c.cropName} ({c.category} • Season: {c.season})
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SelectField
+                  label="Select Agricultural Crop"
+                  required
+                  id="cropId"
+                  value={cropId}
+                  onChange={(e) => setCropId(e.target.value)}
+                  options={crops.map((c) => ({
+                    value: c.cropId,
+                    label: `${c.cropName} (${c.category} • Season: ${c.season})`
+                  }))}
+                />
 
                 {/* Quantity and Price Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="quantity">
-                      Initial Quantity (in kg) *
-                    </label>
-                    <input
-                      id="quantity"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      className="form-control"
-                      placeholder="e.g. 500.00"
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      required
-                    />
-                  </div>
+                  <InputField
+                    label="Initial Quantity"
+                    required
+                    id="quantity"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="e.g. 500.00"
+                    suffix="kg"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                  />
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="pricePerKg">
-                      Asking Price per kg (₹) *
-                    </label>
-                    <input
-                      id="pricePerKg"
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      className="form-control"
-                      placeholder="e.g. 28.50"
-                      value={pricePerKg}
-                      onChange={(e) => setPricePerKg(e.target.value)}
-                      required
-                    />
-                  </div>
+                  <InputField
+                    label="Asking Price per kg"
+                    required
+                    id="pricePerKg"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="e.g. 28.50"
+                    suffix="₹/kg"
+                    value={pricePerKg}
+                    onChange={(e) => setPricePerKg(e.target.value)}
+                  />
                 </div>
 
                 {/* Harvest Date and Location Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="harvestDate">
-                      Date of Harvest *
-                    </label>
-                    <input
-                      id="harvestDate"
-                      type="date"
-                      className="form-control"
-                      value={harvestDate}
-                      onChange={(e) => setHarvestDate(e.target.value)}
-                      required
-                    />
-                  </div>
+                  <InputField
+                    label="Date of Harvest"
+                    required
+                    id="harvestDate"
+                    type="date"
+                    icon={Calendar}
+                    value={harvestDate}
+                    onChange={(e) => setHarvestDate(e.target.value)}
+                  />
 
-                  <div className="form-group">
-                    <label className="form-label" htmlFor="location">
-                      Harvest Location (Origin / Mandi) *
-                    </label>
-                    <input
-                      id="location"
-                      type="text"
-                      className="form-control"
-                      placeholder="e.g. Nashik, Maharashtra"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      required
-                    />
-                  </div>
+                  <InputField
+                    label="Harvest Location (Origin / Mandi)"
+                    required
+                    id="location"
+                    type="text"
+                    icon={MapPin}
+                    placeholder="e.g. Nashik, Maharashtra"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                  />
                 </div>
 
                 {/* Financial Summary Preview */}

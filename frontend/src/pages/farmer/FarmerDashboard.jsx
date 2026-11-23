@@ -103,6 +103,56 @@ export const FarmerDashboard = () => {
 
       <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
+      {/* Prominent Action Required Section */}
+      {!loading && pendingOrders > 0 && (
+        <div style={{
+          backgroundColor: '#fffbeb',
+          border: '1px solid #fde68a',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1rem 1.25rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '50%',
+              backgroundColor: '#fef3c7',
+              color: '#d97706',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0
+            }}>
+              <ShoppingBag size={20} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '0.9375rem', color: '#92400e' }}>
+                Action Required: {pendingOrders} Pending Order{pendingOrders > 1 ? 's' : ''} Awaiting Acceptance
+              </div>
+              <div style={{ fontSize: '0.8125rem', color: '#b45309' }}>
+                Wholesale buyers have placed purchase contracts against your harvest lots. Review terms and reserve stock.
+              </div>
+            </div>
+          </div>
+          <Link to="/farmer/orders" className="btn" style={{
+            backgroundColor: '#d97706',
+            color: '#ffffff',
+            fontWeight: 700,
+            fontSize: '0.8125rem',
+            padding: '0.5rem 1rem'
+          }}>
+            <span>Review Orders &rarr;</span>
+          </Link>
+        </div>
+      )}
+
       {/* KPI Cards Grid */}
       <div className="grid-cards">
         <DashboardCard

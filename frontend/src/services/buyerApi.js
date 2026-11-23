@@ -36,6 +36,7 @@ export const buyerApi = {
   getPayments: (params) => apiClient.get('/api/buyer/payments', { params }),
   getPaymentById: (id) => apiClient.get(`/api/buyer/payments/${id}`),
   getPaymentsByOrder: (orderId) => apiClient.get(`/api/buyer/payments/order/${orderId}`),
+  getOrderPaymentSummary: (orderId) => apiClient.get(`/api/buyer/payments/order/${orderId}`),
   recordPayment: (data) => apiClient.post('/api/buyer/payments', data),
 
   // Price Analytics & Trends

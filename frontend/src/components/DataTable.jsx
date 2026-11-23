@@ -7,47 +7,52 @@ export const DataTable = ({
   data = [],
   keyField = 'id',
   isLoading = false,
-  emptyMessage = 'No records found.'
+  emptyTitle = 'No Records Found',
+  emptyMessage = 'No records match the selected criteria.',
+  emptyActionLabel,
+  onEmptyAction,
+  onRowClick,
+  className = '',
 }) => {
   if (isLoading) {
-    return <LoadingSpinner message="Fetching data..." />;
+    return (
+      <div style={{ padding: '3rem 1rem', display: 'flex', justifyContent: 'center' }}>
+        <LoadingSpinner message="Fetching data..." />
+      </div>
+    );
   }
 
   if (!data || data.length === 0) {
-    return <EmptyState title="No Records" description={emptyMessage} />;
+    return (
+      <EmptyState
+        title={emptyTitle}
+        description={emptyMessage}
+        actionLabel={emptyActionLabel}
+        onAction={onEmptyAction}
+      />
+    );
   }
 
   return (
-    <div style={{
-      width: '100%',
-      overflowX: 'auto',
-      border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius-lg)',
-      backgroundColor: 'var(--color-surface)'
-    }}>
-      <table style={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        textAlign: 'left',
-        fontSize: '0.875rem'
-      }}>
+    <div className={`table-wrapper ${className}`} style={{ borderRadius: 'var(--radius-lg)' }}>
+      <table className="table-modern" style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
-          <tr style={{
-            backgroundColor: 'var(--color-bg-alt)',
-            borderBottom: '1px solid var(--color-border)'
-          }}>
+          <tr>
             {columns.map((col, idx) => (
               <th
                 key={idx}
                 style={{
-                  padding: '0.875rem 1rem',
-                  fontWeight: 700,
-                  fontSize: '0.75rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
-                  color: 'var(--color-text-secondary)',
                   textAlign: col.align || 'left',
-                  width: col.width || 'auto'
+                  width: col.width || 'auto',
+                  padding: '0.85rem 1rem',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--color-text-secondary)',
+                  backgroundColor: 'var(--color-bg-alt)',
+                  borderBottom: '1px solid var(--color-border)',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {col.header}
@@ -58,25 +63,27 @@ export const DataTable = ({
         <tbody>
           {data.map((row, rowIdx) => (
             <tr
-              key={row[keyField] || rowIdx}
+              key={row[keyField] ?? rowIdx}
+              onClick={onRowClick ? () => onRowClick(row, rowIdx) : undefined}
               style={{
-                borderBottom: rowIdx === data.length - 1 ? 'none' : '1px solid var(--color-border-subtle)',
-                transition: 'background-color 0.15s ease'
+                cursor: onRowClick ? 'pointer' : 'default',
+                transition: 'background-color 0.15s ease',
+                borderBottom: '1px solid var(--color-border-subtle)',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-surface-hover)')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               {columns.map((col, colIdx) => (
                 <td
                   key={colIdx}
                   style={{
-                    padding: '0.875rem 1rem',
-                    verticalAlign: 'middle',
                     textAlign: col.align || 'left',
-                    color: 'var(--color-text)'
+                    padding: '0.85rem 1rem',
+                    fontSize: '0.8125rem',
+                    color: 'var(--color-text)',
+                    whiteSpace: col.wrap ? 'normal' : 'nowrap',
+                    verticalAlign: 'middle',
                   }}
                 >
-                  {col.render ? col.render(row, rowIdx) : row[col.accessor]}
+                  {col.render ? col.render(row, rowIdx) : row[col.accessor] ?? '—'}
                 </td>
               ))}
             </tr>

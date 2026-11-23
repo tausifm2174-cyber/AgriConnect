@@ -2,10 +2,23 @@ import React, { useState, useEffect } from 'react';
 import buyerApi from '../../services/buyerApi';
 import DashboardCard from '../../components/DashboardCard';
 import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import Modal from '../../components/Modal';
+import SelectField from '../../components/SelectField';
+import InputField from '../../components/InputField';
+import {
+  CreditCard,
+  ShoppingBag,
+  Clock,
+  FileText,
+  Plus,
+  RefreshCw,
+  Search,
+  CheckCircle2,
+  AlertCircle
+} from 'lucide-react';
 
 export const BuyerPayments = () => {
   const [payments, setPayments] = useState([]);
@@ -18,21 +31,21 @@ export const BuyerPayments = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Payment Recording Modal
+  // Modals
   const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
+  const [selectedSummary, setSelectedSummary] = useState(null);
+  const [loadingSummary, setLoadingSummary] = useState(false);
+
+  // Form state
   const [recordForm, setRecordForm] = useState({
     orderId: '',
     amount: '',
     paymentMethod: 'UPI',
     transactionReference: '',
-    remarks: '',
+    remarks: ''
   });
   const [recording, setRecording] = useState(false);
-
-  // Order Summary Modal
-  const [summaryModalOpen, setSummaryModalOpen] = useState(false);
-  const [selectedSummary, setSelectedSummary] = useState(null);
-  const [loadingSummary, setLoadingSummary] = useState(false);
 
   useEffect(() => {
     loadPaymentsData();
@@ -44,61 +57,58 @@ export const BuyerPayments = () => {
       setError(null);
       const [payRes, ordRes] = await Promise.all([
         buyerApi.getPayments(),
-        buyerApi.getOrders().catch(() => ({ data: [] })),
+        buyerApi.getOrders(),
       ]);
 
-      const payData = payRes.data?.data || payRes.data || [];
-      const ordData = ordRes.data?.data || ordRes.data || [];
+      const pData = payRes.data?.data || payRes.data || [];
+      const oData = ordRes.data?.data || ordRes.data || [];
 
-      setPayments(Array.isArray(payData) ? payData : []);
-      setOrders(Array.isArray(ordData) ? ordData : []);
+      setPayments(Array.isArray(pData) ? pData : []);
+      setOrders(Array.isArray(oData) ? oData : []);
     } catch (err) {
-      console.error('Failed to load payment records:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to retrieve payment records.');
+      console.error('Failed to load buyer payments:', err);
+      setError(err.response?.data?.message || err.message || 'Unable to load payment records.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleOpenRecord = () => {
-    // Default to first accepted or delivered order if available
-    const eligibleOrder = orders.find((o) => ['ACCEPTED', 'SHIPPED', 'DELIVERED'].includes(o.status));
+    const firstEligible = orders.find((o) => ['ACCEPTED', 'SHIPPED', 'DELIVERED'].includes(o.status)) || orders[0];
     setRecordForm({
-      orderId: eligibleOrder ? String(eligibleOrder.orderId) : '',
-      amount: eligibleOrder ? String(eligibleOrder.totalAmount) : '',
+      orderId: firstEligible ? String(firstEligible.orderId) : '',
+      amount: firstEligible ? String(firstEligible.totalAmount) : '',
       paymentMethod: 'UPI',
       transactionReference: `UPI-${Date.now().toString().slice(-8)}`,
-      remarks: 'Digital escrow settlement via AgriConnect Gateway',
+      remarks: 'Payment against purchase order'
     });
     setRecordModalOpen(true);
   };
 
   const handleRecordSubmit = async (e) => {
     e.preventDefault();
-    const amt = parseFloat(recordForm.amount);
-    if (!recordForm.orderId || isNaN(amt) || amt <= 0) {
-      alert('Valid order and positive payment amount are required.');
+    if (!recordForm.orderId || !recordForm.amount) {
+      setError('Please select an order and provide payment amount.');
       return;
     }
 
     try {
       setRecording(true);
-      const payload = {
+      setError(null);
+      await buyerApi.recordPayment({
         orderId: Number(recordForm.orderId),
-        amount: amt,
+        amount: Number(recordForm.amount),
         paymentMethod: recordForm.paymentMethod,
-        transactionReference: recordForm.transactionReference.trim() || undefined,
-        remarks: recordForm.remarks.trim() || undefined,
-      };
+        transactionReference: recordForm.transactionReference,
+        remarks: recordForm.remarks
+      });
 
-      await buyerApi.recordPayment(payload);
+      setActionSuccess(`Payment of ₹${Number(recordForm.amount).toLocaleString('en-IN')} recorded for Order #ORD-${recordForm.orderId}!`);
       setRecordModalOpen(false);
-      setActionSuccess(`Payment of ₹${amt.toLocaleString('en-IN')} recorded successfully for Order #${recordForm.orderId}!`);
-      setTimeout(() => setActionSuccess(null), 4000);
-      loadPaymentsData();
+      await loadPaymentsData();
     } catch (err) {
       console.error('Failed to record payment:', err);
-      alert(err.response?.data?.message || err.message || 'Failed to process payment.');
+      setError(err.response?.data?.message || err.message || 'Payment recording failed.');
     } finally {
       setRecording(false);
     }
@@ -108,159 +118,167 @@ export const BuyerPayments = () => {
     try {
       setLoadingSummary(true);
       setSummaryModalOpen(true);
-      const res = await buyerApi.getPaymentsByOrder(orderId);
-      const data = res.data?.data || res.data;
-      setSelectedSummary(data);
+      const res = await buyerApi.getOrderPaymentSummary(orderId);
+      setSelectedSummary(res.data?.data || res.data || null);
     } catch (err) {
       console.error('Failed to load order payment summary:', err);
-      alert(err.response?.data?.message || 'Failed to load order payment ledger summary.');
-      setSummaryModalOpen(false);
+      setSelectedSummary(null);
     } finally {
       setLoadingSummary(false);
     }
   };
 
-  // Filtered payments
-  const filteredPayments = payments.filter((p) => {
-    const matchesStatus = statusFilter === 'ALL' || p.paymentStatus === statusFilter;
-
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      (p.transactionReference && p.transactionReference.toLowerCase().includes(term)) ||
-      (p.cropName && p.cropName.toLowerCase().includes(term)) ||
-      (p.farmerName && p.farmerName.toLowerCase().includes(term)) ||
-      (p.paymentMethod && p.paymentMethod.toLowerCase().includes(term)) ||
-      String(p.paymentId).includes(term) ||
-      String(p.orderId).includes(term);
-
-    return matchesStatus && matchesSearch;
-  });
-
-  // Financial KPIs
+  // KPIs
   const totalSettledPaid = payments
     .filter((p) => p.paymentStatus === 'COMPLETED')
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-  const pendingDisbursements = payments
-    .filter((p) => p.paymentStatus === 'PENDING')
-    .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
   const totalOrdersContracted = orders
-    .filter((o) => ['ACCEPTED', 'SHIPPED', 'DELIVERED'].includes(o.status))
+    .filter((o) => ['ACCEPTED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(o.status))
     .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
+  const pendingDisbursements = Math.max(0, totalOrdersContracted - totalSettledPaid);
   const totalReceipts = payments.length;
 
+  // Filter
+  const filteredPayments = payments.filter((pay) => {
+    const matchesStatus = statusFilter === 'ALL' || pay.paymentStatus === statusFilter;
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      String(pay.paymentId).includes(term) ||
+      String(pay.orderId).includes(term) ||
+      pay.transactionReference?.toLowerCase().includes(term) ||
+      pay.cropName?.toLowerCase().includes(term) ||
+      pay.farmerName?.toLowerCase().includes(term) ||
+      pay.paymentMethod?.toLowerCase().includes(term);
+
+    return matchesStatus && matchesSearch;
+  });
+
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payment Settlements & Ledger</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Audit digital escrow disbursements, transaction references, and contract financial balances.
+          <h1 className="page-title">
+            <CreditCard size={26} color="var(--color-primary)" />
+            <span>Payment Settlements & Ledger</span>
+          </h1>
+          <p className="page-subtitle">
+            View order payments, payment methods, transaction references, and payment statuses.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {orders.length > 0 && (
             <button
+              type="button"
               onClick={handleOpenRecord}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
+              className="btn btn-primary"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>
-              Make Payment
+              <Plus size={16} />
+              <span>Make Payment</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={loadPaymentsData}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+            className="btn btn-secondary"
           >
-            <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
-          <span>{actionSuccess}</span>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800 font-bold">
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.25rem',
+          fontSize: '0.875rem'
+        }}>
+          <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{actionSuccess}</span>
+          <button
+            type="button"
+            onClick={() => setActionSuccess(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 700 }}
+          >
             &times;
           </button>
         </div>
       )}
 
-      {error && <ErrorMessage message={error} onRetry={loadPaymentsData} />}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Total Paid (Settled)"
-          value={`₹${totalSettledPaid.toLocaleString('en-IN')}`}
-          subtitle={`${payments.filter((p) => p.paymentStatus === 'COMPLETED').length} settled receipts`}
-          icon="currency-rupee"
-          color="emerald"
+          value={loading ? '...' : `₹${Number(totalSettledPaid).toLocaleString('en-IN')}`}
+          description={`${payments.filter((p) => p.paymentStatus === 'COMPLETED').length} settled receipts`}
+          icon={CreditCard}
+          variant="success"
         />
         <DashboardCard
           title="Contract Volume"
-          value={`₹${totalOrdersContracted.toLocaleString('en-IN')}`}
-          subtitle="All accepted/delivered orders"
-          icon="shopping-bag"
-          color="blue"
+          value={loading ? '...' : `₹${Number(totalOrdersContracted).toLocaleString('en-IN')}`}
+          description="All accepted & delivered orders"
+          icon={ShoppingBag}
+          variant="primary"
         />
         <DashboardCard
           title="Pending Settlements"
-          value={`₹${pendingDisbursements.toLocaleString('en-IN')}`}
-          subtitle="In escrow processing"
-          icon="clock"
-          color={pendingDisbursements > 0 ? "amber" : "gray"}
+          value={loading ? '...' : `₹${Number(pendingDisbursements).toLocaleString('en-IN')}`}
+          description="Remaining contract balance"
+          icon={Clock}
+          variant="secondary"
+          trend={pendingDisbursements > 0 ? `₹${Number(pendingDisbursements).toLocaleString('en-IN')}` : null}
+          trendLabel={pendingDisbursements > 0 ? 'Pending' : null}
         />
         <DashboardCard
           title="Payment Receipts"
-          value={totalReceipts}
-          subtitle="Recorded disbursements"
-          icon="document-text"
-          color="emerald"
+          value={loading ? '...' : totalReceipts}
+          description="Recorded disbursements"
+          icon={FileText}
+          variant="accent"
         />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {['ALL', 'COMPLETED', 'PENDING', 'FAILED', 'REFUNDED'].map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === tab
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
             >
               {tab}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="search-wrapper">
+          <span className="search-icon">
+            <Search size={16} />
+          </span>
           <input
             type="text"
             placeholder="Search ref #, order #, farmer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="search-input"
           />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
@@ -269,6 +287,7 @@ export const BuyerPayments = () => {
         <LoadingSpinner message="Auditing financial transaction ledger..." />
       ) : filteredPayments.length === 0 ? (
         <EmptyState
+          icon={CreditCard}
           title="No payment records found"
           description={
             searchTerm || statusFilter !== 'ALL'
@@ -277,81 +296,89 @@ export const BuyerPayments = () => {
           }
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Receipt & Date</th>
-                  <th className="px-4 py-3.5 text-left">Order & Crop</th>
-                  <th className="px-4 py-3.5 text-left">Farmer</th>
-                  <th className="px-4 py-3.5 text-left">Method & Reference</th>
-                  <th className="px-4 py-3.5 text-right">Settled Amount</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Audit</th>
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Receipt & Date</th>
+                <th>Order & Crop</th>
+                <th>Farmer</th>
+                <th>Method & Reference</th>
+                <th style={{ textAlign: 'right' }}>Settled Amount</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'right' }}>Audit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPayments.map((pay) => (
+                <tr key={pay.paymentId}>
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>#PAY-{pay.paymentId}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      {pay.paymentDate
+                        ? new Date(pay.paymentDate).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })
+                        : 'Recorded'}
+                    </div>
+                  </td>
+
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>#ORD-{pay.orderId}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{pay.cropName}</div>
+                  </td>
+
+                  <td>
+                    <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{pay.farmerName}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{pay.farmLocation}</div>
+                  </td>
+
+                  <td style={{ whiteSpace: 'nowrap' }}>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.75rem',
+                      fontWeight: 600,
+                      backgroundColor: 'var(--color-bg-alt)',
+                      color: 'var(--color-text-secondary)'
+                    }}>
+                      {pay.paymentMethod ? pay.paymentMethod.replace('_', ' ') : 'DIRECT'}
+                    </span>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis' }} title={pay.transactionReference}>
+                      {pay.transactionReference || 'REF-N/A'}
+                    </div>
+                  </td>
+
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <div style={{ fontSize: '1rem', fontWeight: 800, color: 'var(--color-primary)' }}>
+                      ₹{Number(pay.amount).toLocaleString('en-IN')}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                      Order Total: ₹{Number(pay.orderTotalAmount || pay.amount).toLocaleString('en-IN')}
+                    </div>
+                  </td>
+
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                    <StatusBadge status={pay.paymentStatus} />
+                  </td>
+
+                  <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenOrderSummary(pay.orderId)}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '0.3rem 0.65rem' }}
+                    >
+                      Order Balance
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredPayments.map((pay) => (
-                  <tr key={pay.paymentId} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-semibold text-gray-900">#PAY-{pay.paymentId}</div>
-                      <div className="text-[11px] text-gray-400">
-                        {pay.paymentDate
-                          ? new Date(pay.paymentDate).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })
-                          : 'Recorded'}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">#ORD-{pay.orderId}</div>
-                      <div className="text-xs text-gray-500">{pay.cropName}</div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{pay.farmerName}</div>
-                      <div className="text-xs text-gray-500">{pay.farmLocation}</div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700">
-                        {pay.paymentMethod ? pay.paymentMethod.replace('_', ' ') : 'DIRECT'}
-                      </span>
-                      <div className="font-mono text-xs text-gray-500 mt-0.5 truncate max-w-[140px]" title={pay.transactionReference}>
-                        {pay.transactionReference || 'REF-N/A'}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      <div className="text-base font-bold text-emerald-600">
-                        ₹{Number(pay.amount).toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-[10px] text-gray-400">
-                        Order Total: ₹{Number(pay.orderTotalAmount || pay.amount).toLocaleString('en-IN')}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                      <StatusBadge status={pay.paymentStatus} />
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      <button
-                        onClick={() => handleOpenOrderSummary(pay.orderId)}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
-                      >
-                        Order Balance
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -360,102 +387,88 @@ export const BuyerPayments = () => {
         <Modal
           isOpen={recordModalOpen}
           onClose={() => setRecordModalOpen(false)}
-          title="Record Order Payment Settlement"
-          maxWidth="max-w-md"
+          title="Record Order Payment"
+          maxWidth="480px"
         >
-          <form onSubmit={handleRecordSubmit} className="space-y-4 text-sm">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Purchase Order <span className="text-red-500">*</span>
-              </label>
-              <select
-                required
-                value={recordForm.orderId}
-                onChange={(e) => {
-                  const sel = orders.find((o) => String(o.orderId) === e.target.value);
-                  setRecordForm({
-                    ...recordForm,
-                    orderId: e.target.value,
-                    amount: sel ? String(sel.totalAmount) : recordForm.amount
-                  });
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="">Select order...</option>
-                {orders.map((o) => (
-                  <option key={o.orderId} value={o.orderId}>
-                    #ORD-{o.orderId} — {o.cropName} (₹{Number(o.totalAmount).toLocaleString('en-IN')}) — {o.status}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <form onSubmit={handleRecordSubmit} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <SelectField
+              label="Purchase Order"
+              required
+              value={recordForm.orderId}
+              onChange={(e) => {
+                const sel = orders.find((o) => String(o.orderId) === e.target.value);
+                setRecordForm({
+                  ...recordForm,
+                  orderId: e.target.value,
+                  amount: sel ? String(sel.totalAmount) : recordForm.amount
+                });
+              }}
+              options={[
+                { value: '', label: 'Select order...' },
+                ...orders.map((o) => ({
+                  value: o.orderId,
+                  label: `#ORD-${o.orderId} — ${o.cropName} (₹${Number(o.totalAmount).toLocaleString('en-IN')}) — ${o.status}`
+                }))
+              ]}
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Settlement Amount (₹) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                required
-                value={recordForm.amount}
-                onChange={(e) => setRecordForm({ ...recordForm, amount: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
+            <InputField
+              label="Payment Amount"
+              required
+              type="number"
+              step="0.01"
+              min="0.01"
+              suffix="₹"
+              value={recordForm.amount}
+              onChange={(e) => setRecordForm({ ...recordForm, amount: e.target.value })}
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Payment Channel <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={recordForm.paymentMethod}
-                onChange={(e) => setRecordForm({ ...recordForm, paymentMethod: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500"
-              >
-                <option value="UPI">UPI Digital Payment</option>
-                <option value="BANK_TRANSFER">NEFT / RTGS / IMPS Bank Transfer</option>
-                <option value="ESCROW">Digital Escrow Protection</option>
-                <option value="CREDIT_CARD">Corporate Credit Card</option>
-                <option value="DEBIT_CARD">Debit Card</option>
-                <option value="CASH_ON_DELIVERY">Cash on Delivery (APMC Mandi)</option>
-              </select>
-            </div>
+            <SelectField
+              label="Payment Method"
+              required
+              value={recordForm.paymentMethod}
+              onChange={(e) => setRecordForm({ ...recordForm, paymentMethod: e.target.value })}
+              options={[
+                { value: 'BANK_TRANSFER', label: 'Bank Transfer (NEFT / RTGS / IMPS)' },
+                { value: 'UPI', label: 'UPI (Unified Payments Interface)' },
+                { value: 'CASH', label: 'Cash' },
+                { value: 'CHEQUE', label: 'Cheque' },
+              ]}
+            />
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Transaction Reference</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Transaction Reference</label>
               <input
                 type="text"
                 placeholder="Bank UTR / UPI Ref ID..."
                 value={recordForm.transactionReference}
                 onChange={(e) => setRecordForm({ ...recordForm, transactionReference: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Remarks</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Remarks</label>
               <input
                 type="text"
                 value={recordForm.remarks}
                 onChange={(e) => setRecordForm({ ...recordForm, remarks: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500"
+                className="form-control"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
                 type="button"
                 onClick={() => setRecordModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={recording}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors shadow-sm"
+                className="btn btn-primary"
               >
                 {recording ? 'Processing...' : 'Record Payment'}
               </button>
@@ -470,77 +483,78 @@ export const BuyerPayments = () => {
           isOpen={summaryModalOpen}
           onClose={() => setSummaryModalOpen(false)}
           title={`Order Payment Balance: #ORD-${selectedSummary?.orderId || ''}`}
-          maxWidth="max-w-xl"
+          maxWidth="560px"
         >
           {loadingSummary ? (
             <LoadingSpinner message="Auditing contract receipts..." />
           ) : selectedSummary ? (
-            <div className="space-y-4 text-sm">
-              <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+            <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                 <div>
-                  <span className="text-xs text-gray-500 uppercase">Contract Total</span>
-                  <div className="text-base font-bold text-gray-900">
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Contract Total</span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-text)', marginTop: '0.2rem' }}>
                     ₹{Number(selectedSummary.orderTotalAmount || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs text-emerald-700 uppercase">Total Paid</span>
-                  <div className="text-base font-bold text-emerald-600">
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-primary)', textTransform: 'uppercase', fontWeight: 700 }}>Total Paid</span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-primary)', marginTop: '0.2rem' }}>
                     ₹{Number(selectedSummary.totalPaid || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
                 <div>
-                  <span className="text-xs text-amber-700 uppercase">Balance Due</span>
-                  <div className="text-base font-bold text-amber-600">
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-secondary)', textTransform: 'uppercase', fontWeight: 700 }}>Balance Due</span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 800, color: 'var(--color-secondary)', marginTop: '0.2rem' }}>
                     ₹{Number(selectedSummary.remainingBalance || 0).toLocaleString('en-IN')}
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between text-xs text-gray-600 border-b border-gray-100 pb-2">
-                <span>Settlement Status:</span>
-                <span className={`font-semibold ${selectedSummary.isFullyPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {selectedSummary.isFullyPaid ? 'Fully Settled' : 'Balance Pending'}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8125rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--color-border)' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Payment Status:</span>
+                <span style={{ fontWeight: 700, color: selectedSummary.isFullyPaid ? 'var(--color-primary)' : 'var(--color-secondary)' }}>
+                  {selectedSummary.isFullyPaid ? 'Fully Paid' : 'Balance Pending'}
                 </span>
               </div>
 
               <div>
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                <h4 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
                   Transaction Disbursements ({selectedSummary.payments?.length || 0})
                 </h4>
                 {selectedSummary.payments && selectedSummary.payments.length > 0 ? (
-                  <div className="divide-y divide-gray-100 border border-gray-100 rounded-lg overflow-hidden">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                     {selectedSummary.payments.map((p) => (
-                      <div key={p.paymentId} className="p-3 bg-white flex items-center justify-between">
+                      <div key={p.paymentId} style={{ padding: '0.75rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
-                          <div className="font-semibold text-gray-900">#PAY-{p.paymentId}</div>
-                          <div className="text-xs text-gray-500">
+                          <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>#PAY-{p.paymentId}</div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                             {p.paymentMethod} • {p.transactionReference || 'REF-N/A'}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold text-emerald-600">₹{Number(p.amount).toLocaleString('en-IN')}</div>
-                          <div className="text-xs"><StatusBadge status={p.paymentStatus} /></div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 800, color: 'var(--color-primary)' }}>₹{Number(p.amount).toLocaleString('en-IN')}</div>
+                          <div style={{ marginTop: '0.2rem' }}><StatusBadge status={p.paymentStatus} /></div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-400 italic">No disbursement receipts found.</p>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No disbursement receipts found.</p>
                 )}
               </div>
 
-              <div className="pt-3 border-t border-gray-100 flex justify-end">
+              <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
                 <button
+                  type="button"
                   onClick={() => setSummaryModalOpen(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                  className="btn btn-secondary"
                 >
                   Close
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-gray-500 text-sm">Summary could not be loaded.</p>
+            <p style={{ padding: '1.25rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Summary could not be loaded.</p>
           )}
         </Modal>
       )}

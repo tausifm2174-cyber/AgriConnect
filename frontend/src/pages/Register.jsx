@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import authApi from '../services/authApi';
 import ErrorMessage from '../components/ErrorMessage';
+import SelectField from '../components/SelectField';
 import { Sprout, CheckCircle2, User, Mail, Phone, Lock, ArrowRight } from 'lucide-react';
 
 export const Register = () => {
@@ -296,20 +297,19 @@ export const Register = () => {
                         onChange={(e) => setBusinessName(e.target.value)}
                       />
                     </div>
-                    <div className="form-group" style={{ marginBottom: 0 }}>
-                      <label className="form-label">Business Type</label>
-                      <select
-                        className="form-control"
-                        value={businessType}
-                        onChange={(e) => setBusinessType(e.target.value)}
-                      >
-                        <option value="WHOLESALER">Wholesaler</option>
-                        <option value="RETAILER">Retailer</option>
-                        <option value="FOOD_PROCESSOR">Food Processor</option>
-                        <option value="EXPORTER">Exporter</option>
-                        <option value="INSTITUTIONAL_BUYER">Institutional Buyer</option>
-                      </select>
-                    </div>
+                    <SelectField
+                      label="Business Type"
+                      value={businessType}
+                      onChange={(e) => setBusinessType(e.target.value)}
+                      style={{ marginBottom: 0 }}
+                      options={[
+                        { value: 'WHOLESALER', label: 'Wholesaler' },
+                        { value: 'RETAILER', label: 'Retailer' },
+                        { value: 'FOOD_PROCESSOR', label: 'Food Processor' },
+                        { value: 'EXPORTER', label: 'Exporter' },
+                        { value: 'INSTITUTIONAL_BUYER', label: 'Institutional Buyer' },
+                      ]}
+                    />
                     <div className="form-group" style={{ marginBottom: 0 }}>
                       <label className="form-label">GSTIN (15 Digits)</label>
                       <input

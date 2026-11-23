@@ -7,7 +7,7 @@ export const FarmerLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout portal-farmer">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main-content-wrapper" style={{ marginLeft: 0 }}>
         <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} title="Farmer Operations Dashboard" />

@@ -165,7 +165,9 @@ export const AdminUserDetail = () => {
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-gray-400 uppercase font-bold text-[10px]">GSTIN Registration</div>
-                  <div className="text-sm font-semibold text-gray-900 mt-0.5 font-mono">{user.buyerProfile.gstNumber || 'Not provided'}</div>
+                  <div className="text-sm font-semibold text-gray-900 mt-0.5 font-mono">
+                    {user.buyerProfile.gstin || user.buyerProfile.gstNumber || 'Not provided'}
+                  </div>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <div className="text-gray-400 uppercase font-bold text-[10px]">Business Address</div>

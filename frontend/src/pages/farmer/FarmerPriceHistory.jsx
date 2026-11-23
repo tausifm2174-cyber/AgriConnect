@@ -187,8 +187,8 @@ export const FarmerPriceHistory = () => {
       )}
 
       {/* Source Filter Tabs */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {[
             { id: 'ALL', label: 'All Records' },
             { id: 'TRANSACTION_SALE', label: 'My Realized Sales' },
@@ -197,11 +197,7 @@ export const FarmerPriceHistory = () => {
             <button
               key={tab.id}
               onClick={() => setSourceFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                sourceFilter === tab.id
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${sourceFilter === tab.id ? 'active' : ''}`}
             >
               {tab.label}
             </button>
@@ -227,98 +223,65 @@ export const FarmerPriceHistory = () => {
           }
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Date & Market</th>
-                  <th className="px-4 py-3.5 text-left">Produce</th>
-                  <th className="px-4 py-3.5 text-center">Record Type</th>
-                  <th className="px-4 py-3.5 text-right">Unit / Modal Price</th>
-                  <th className="px-4 py-3.5 text-right">Mandi Range (Min - Max)</th>
-                  <th className="px-4 py-3.5 text-right">Volume</th>
-                  <th className="px-4 py-3.5 text-right">Total Realization</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredRecords.map((rec) => {
-                  const isSale = rec.sourceType === 'TRANSACTION_SALE';
-                  return (
-                    <tr key={rec.priceId} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-semibold text-gray-900">
-                          {rec.recordedDate
-                            ? new Date(rec.recordedDate).toLocaleDateString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              })
-                            : 'N/A'}
-                        </div>
-                        <div className="text-xs text-gray-500">{rec.marketLocation || 'National Marketplace'}</div>
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{rec.cropName || 'Crop'}</div>
-                        <div className="text-xs text-gray-500">{rec.cropCategory || 'Category'}</div>
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
-                            isSale
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}
-                        >
-                          {isSale ? 'Realized Sale' : 'APMC Benchmark'}
-                        </span>
-                        {isSale && rec.orderId && (
-                          <div className="text-[10px] text-gray-400 font-mono mt-0.5">#ORD-{rec.orderId}</div>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        <div className="font-bold text-gray-900">
-                          ₹{Number(rec.effectivePrice || rec.unitPrice || rec.modalPricePerKg).toFixed(2)}
-                          <span className="text-xs font-normal text-gray-500"> / kg</span>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {rec.minPricePerKg && rec.maxPricePerKg ? (
-                          <div className="text-xs text-gray-600 font-mono">
-                            ₹{Number(rec.minPricePerKg).toFixed(2)} - ₹{Number(rec.maxPricePerKg).toFixed(2)}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">—</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {rec.quantity ? (
-                          <span className="font-medium text-gray-900">{Number(rec.quantity).toLocaleString()} kg</span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Market Benchmark</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {isSale && rec.totalAmount ? (
-                          <span className="font-bold text-emerald-600">
-                            ₹{Number(rec.totalAmount).toLocaleString('en-IN')}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Date & Market</th>
+                <th>Produce</th>
+                <th style={{ textAlign: 'center' }}>Record Type</th>
+                <th style={{ textAlign: 'right' }}>Unit / Modal Price</th>
+                <th style={{ textAlign: 'right' }}>Mandi Range (Min - Max)</th>
+                <th style={{ textAlign: 'right' }}>Volume</th>
+                <th style={{ textAlign: 'right' }}>Total Realization</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((rec) => {
+                const isSale = rec.sourceType === 'TRANSACTION_SALE';
+                return (
+                  <tr key={rec.priceId}>
+                    <td>
+                      <div className="font-semibold text-gray-900">
+                        {rec.recordedDate ? new Date(rec.recordedDate).toLocaleDateString('en-IN') : '—'}
+                      </div>
+                      <div className="text-xs text-gray-500">{rec.marketLocation || 'Direct Farm'}</div>
+                    </td>
+                    <td>
+                      <div className="font-bold text-gray-900">{rec.cropName}</div>
+                      <div className="text-xs text-gray-400 font-mono">ID #{rec.cropId}</div>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                          isSale
+                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                            : 'bg-amber-100 text-amber-800 border border-amber-200'
+                        }`}
+                      >
+                        {isSale ? 'REALIZED SALE' : 'APMC MANDI'}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="font-mono font-bold text-gray-900">
+                      ₹{Number(rec.effectivePrice || rec.modalPricePerKg || 0).toFixed(2)}
+                      <span className="text-xs font-normal text-gray-400">/kg</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="font-mono text-xs text-gray-500">
+                      {rec.minPricePerKg != null && rec.maxPricePerKg != null
+                        ? `₹${Number(rec.minPricePerKg).toFixed(2)} — ₹${Number(rec.maxPricePerKg).toFixed(2)}`
+                        : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="font-mono text-gray-700">
+                      {rec.quantity ? `${Number(rec.quantity).toLocaleString()} kg` : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }} className="font-mono font-black text-emerald-700">
+                      {rec.totalAmount ? `₹${Number(rec.totalAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

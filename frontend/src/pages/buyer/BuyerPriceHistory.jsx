@@ -4,6 +4,14 @@ import DashboardCard from '../../components/DashboardCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import {
+  TrendingUp,
+  Scale,
+  BarChart3,
+  FileText,
+  Layers,
+  CheckCircle2
+} from 'lucide-react';
 
 export const BuyerPriceHistory = () => {
   const [historyRecords, setHistoryRecords] = useState([]);
@@ -79,23 +87,29 @@ export const BuyerPriceHistory = () => {
   });
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Market Price History & Analytics</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="page-title">
+            <TrendingUp size={26} color="var(--color-primary)" />
+            <span>Market Price History & Analytics</span>
+          </h1>
+          <p className="page-subtitle">
             Compare official APMC mandi benchmark reference rates against actual AgriConnect platform transactions.
           </p>
         </div>
 
         {/* Crop Selector */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Crop Filter:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Crop Filter:
+          </label>
           <select
             value={selectedCropId}
             onChange={(e) => handleCropSelect(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+            className="form-control"
+            style={{ width: 'auto', minWidth: '180px', padding: '0.45rem 0.75rem', fontSize: '0.8125rem' }}
           >
             <option value="">All Commodities</option>
             {crops.map((c) => (
@@ -107,10 +121,10 @@ export const BuyerPriceHistory = () => {
         </div>
       </div>
 
-      {error && <ErrorMessage message={error} onRetry={loadInitialData} />}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Market Benchmark Average"
           value={
@@ -120,9 +134,9 @@ export const BuyerPriceHistory = () => {
               ? `₹${Number(marketplaceSummary.overallAveragePrice).toFixed(2)}/kg`
               : '₹—'
           }
-          subtitle={selectedCropId ? 'Selected commodity average' : 'Marketplace-wide modal rate'}
-          icon="scale"
-          color="emerald"
+          description={selectedCropId ? 'Selected commodity average' : 'Marketplace modal rate'}
+          icon={Scale}
+          variant="primary"
         />
         <DashboardCard
           title="Benchmark Range"
@@ -131,16 +145,16 @@ export const BuyerPriceHistory = () => {
               ? `₹${Number(cropAnalytics.minPrice).toFixed(2)} - ₹${Number(cropAnalytics.maxPrice).toFixed(2)}`
               : 'Multi-mandi spread'
           }
-          subtitle="Min to max APMC trading price"
-          icon="chart-bar"
-          color="blue"
+          description="Min to max APMC trading price"
+          icon={BarChart3}
+          variant="accent"
         />
         <DashboardCard
           title="Market Trend"
           value={cropAnalytics?.priceTrend || 'STABLE'}
-          subtitle={selectedCropId ? 'Based on latest market data' : 'Calculated across APMC reports'}
-          icon="trending-up"
-          color="amber"
+          description={selectedCropId ? 'Based on latest market data' : 'Calculated across APMC reports'}
+          icon={TrendingUp}
+          variant="secondary"
         />
         <DashboardCard
           title="Volume Analyzed"
@@ -149,43 +163,52 @@ export const BuyerPriceHistory = () => {
               ? `${(Number(cropAnalytics.totalVolumeKg) / 1000).toFixed(1)} MT`
               : `${historyRecords.length} records`
           }
-          subtitle="Tracked in DBMS analytics"
-          icon="document-text"
-          color="emerald"
+          description="Tracked in DBMS analytics"
+          icon={FileText}
+          variant="success"
         />
       </div>
 
       {/* Crop Analytics Highlight (when selected) */}
       {cropAnalytics && (
-        <div className="p-4 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 rounded-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Detailed Econometric Analysis: {cropAnalytics.cropName}
-              </span>
-              <div className="text-sm text-gray-700 mt-1">
-                Total Trading Volume: <strong>{Number(cropAnalytics.totalVolumeKg || 0).toLocaleString()} kg</strong> across{' '}
-                <strong>{cropAnalytics.totalTransactions || 0}</strong> market transactions.
-              </div>
+        <div style={{
+          padding: '1.25rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-lg)',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}>
+          <div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', color: 'var(--color-primary)', letterSpacing: '0.04em' }}>
+              Detailed Econometric Analysis: {cropAnalytics.cropName}
+            </span>
+            <div style={{ fontSize: '0.85rem', color: 'var(--color-text)', marginTop: '0.25rem' }}>
+              Total Trading Volume: <strong>{Number(cropAnalytics.totalVolumeKg || 0).toLocaleString()} kg</strong> across{' '}
+              <strong>{cropAnalytics.totalTransactions || 0}</strong> market transactions.
             </div>
-            <div className="flex items-center gap-3 text-xs font-semibold">
-              <span className="px-2.5 py-1 bg-white rounded-lg border border-emerald-200 text-gray-700 shadow-sm">
-                Min: ₹{Number(cropAnalytics.minPrice).toFixed(2)}/kg
-              </span>
-              <span className="px-2.5 py-1 bg-white rounded-lg border border-emerald-200 text-emerald-700 shadow-sm">
-                Modal: ₹{Number(cropAnalytics.averagePrice).toFixed(2)}/kg
-              </span>
-              <span className="px-2.5 py-1 bg-white rounded-lg border border-emerald-200 text-gray-700 shadow-sm">
-                Max: ₹{Number(cropAnalytics.maxPrice).toFixed(2)}/kg
-              </span>
-            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
+            <span style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+              Min: ₹{Number(cropAnalytics.minPrice).toFixed(2)}/kg
+            </span>
+            <span style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-primary-border)', color: 'var(--color-primary)' }}>
+              Modal: ₹{Number(cropAnalytics.averagePrice).toFixed(2)}/kg
+            </span>
+            <span style={{ padding: '0.35rem 0.65rem', backgroundColor: 'var(--color-surface)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+              Max: ₹{Number(cropAnalytics.maxPrice).toFixed(2)}/kg
+            </span>
           </div>
         </div>
       )}
 
       {/* Source Filter Tabs */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {[
             { id: 'ALL', label: 'All Price Records' },
             { id: 'MANDI_BENCHMARK', label: 'APMC Mandi Benchmarks' },
@@ -193,18 +216,15 @@ export const BuyerPriceHistory = () => {
           ].map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setSourceFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                sourceFilter === tab.id
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${sourceFilter === tab.id ? 'active' : ''}`}
             >
               {tab.label}
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-500 font-medium">
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>
           Showing {filteredRecords.length} records
         </span>
       </div>
@@ -214,102 +234,108 @@ export const BuyerPriceHistory = () => {
         <LoadingSpinner message="Auditing market price history & APMC trends..." />
       ) : filteredRecords.length === 0 ? (
         <EmptyState
+          icon={TrendingUp}
           title="No price history records found"
           description="No historical pricing records match the selected filter."
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Date & Market</th>
-                  <th className="px-4 py-3.5 text-left">Produce</th>
-                  <th className="px-4 py-3.5 text-center">Data Source</th>
-                  <th className="px-4 py-3.5 text-right">Modal / Unit Price</th>
-                  <th className="px-4 py-3.5 text-right">Mandi Range (Min - Max)</th>
-                  <th className="px-4 py-3.5 text-right">Volume</th>
-                  <th className="px-4 py-3.5 text-right">Transaction Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredRecords.map((rec) => {
-                  const isSale = rec.sourceType === 'TRANSACTION_SALE';
-                  return (
-                    <tr key={rec.priceId} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-semibold text-gray-900">
-                          {rec.recordedDate
-                            ? new Date(rec.recordedDate).toLocaleDateString('en-IN', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric'
-                              })
-                            : 'N/A'}
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Date & Market</th>
+                <th>Produce</th>
+                <th style={{ textAlign: 'center' }}>Data Source</th>
+                <th style={{ textAlign: 'right' }}>Modal / Unit Price</th>
+                <th style={{ textAlign: 'right' }}>Mandi Range (Min - Max)</th>
+                <th style={{ textAlign: 'right' }}>Volume</th>
+                <th style={{ textAlign: 'right' }}>Transaction Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((rec) => {
+                const isSale = rec.sourceType === 'TRANSACTION_SALE';
+                return (
+                  <tr key={rec.priceId}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                        {rec.recordedDate
+                          ? new Date(rec.recordedDate).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric'
+                            })
+                          : 'N/A'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {rec.marketLocation || 'National Mandi'}
+                      </div>
+                    </td>
+
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{rec.cropName}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{rec.cropCategory}</div>
+                    </td>
+
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: 'var(--radius-full)',
+                        fontSize: '0.72rem',
+                        fontWeight: 700,
+                        backgroundColor: isSale ? 'var(--color-primary-light)' : 'var(--color-accent-light)',
+                        color: isSale ? 'var(--color-primary)' : 'var(--color-accent)',
+                        border: `1px solid ${isSale ? 'var(--color-primary-border)' : '#7dd3fc'}`
+                      }}>
+                        {isSale ? 'AgriConnect Sale' : 'APMC Mandi'}
+                      </span>
+                      {isSale && rec.orderId && (
+                        <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', fontFamily: 'monospace', marginTop: '0.2rem' }}>
+                          #ORD-{rec.orderId}
                         </div>
-                        <div className="text-xs text-gray-500">{rec.marketLocation || 'National Mandi'}</div>
-                      </td>
+                      )}
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">{rec.cropName}</div>
-                        <div className="text-xs text-gray-500">{rec.cropCategory}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                        ₹{Number(rec.effectivePrice || rec.unitPrice || rec.modalPricePerKg).toFixed(2)}
+                        <span style={{ fontSize: '0.75rem', fontWeight: 400, color: 'var(--color-text-muted)' }}> / kg</span>
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold ${
-                            isSale
-                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              : 'bg-blue-100 text-blue-800 border border-blue-200'
-                          }`}
-                        >
-                          {isSale ? 'AgriConnect Sale' : 'APMC Mandi'}
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {rec.minPricePerKg && rec.maxPricePerKg ? (
+                        <div style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--color-text-secondary)' }}>
+                          ₹{Number(rec.minPricePerKg).toFixed(2)} - ₹{Number(rec.maxPricePerKg).toFixed(2)}
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>—</span>
+                      )}
+                    </td>
+
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {rec.quantity ? (
+                        <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{Number(rec.quantity).toLocaleString()} kg</span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Market Benchmark</span>
+                      )}
+                    </td>
+
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      {isSale && rec.totalAmount ? (
+                        <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
+                          ₹{Number(rec.totalAmount).toLocaleString('en-IN')}
                         </span>
-                        {isSale && rec.orderId && (
-                          <div className="text-[10px] text-gray-400 font-mono mt-0.5">#ORD-{rec.orderId}</div>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        <div className="font-bold text-gray-900">
-                          ₹{Number(rec.effectivePrice || rec.unitPrice || rec.modalPricePerKg).toFixed(2)}
-                          <span className="text-xs font-normal text-gray-500"> / kg</span>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {rec.minPricePerKg && rec.maxPricePerKg ? (
-                          <div className="text-xs text-gray-600 font-mono">
-                            ₹{Number(rec.minPricePerKg).toFixed(2)} - ₹{Number(rec.maxPricePerKg).toFixed(2)}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">—</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {rec.quantity ? (
-                          <span className="font-medium text-gray-900">{Number(rec.quantity).toLocaleString()} kg</span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">Market Benchmark</span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        {isSale && rec.totalAmount ? (
-                          <span className="font-bold text-emerald-600">
-                            ₹{Number(rec.totalAmount).toLocaleString('en-IN')}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-gray-400 italic">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

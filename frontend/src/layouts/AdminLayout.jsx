@@ -7,7 +7,7 @@ export const AdminLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout portal-admin">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main-content-wrapper" style={{ marginLeft: 0 }}>
         <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} title="Admin Command Center" />

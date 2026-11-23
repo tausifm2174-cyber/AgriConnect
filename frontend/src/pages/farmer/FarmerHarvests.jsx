@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import farmerApi from '../../services/farmerApi';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
-import EmptyState from '../../components/ErrorMessage';
+import EmptyState from '../../components/EmptyState';
 import ErrorMessage from '../../components/ErrorMessage';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import Modal from '../../components/Modal';
@@ -42,6 +42,8 @@ export const FarmerHarvests = () => {
   // Delete Dialog State
   const [deleteId, setDeleteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const navigate = useNavigate();
 
   const fetchHarvests = async () => {
     setLoading(true);
@@ -157,64 +159,31 @@ export const FarmerHarvests = () => {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="card" style={{ padding: '1rem 1.25rem', marginBottom: '1.5rem' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '1rem'
-        }}>
-          {/* Search Box */}
-          <div style={{ position: 'relative', flex: '1', minWidth: '240px', maxWidth: '400px' }}>
-            <input
-              type="text"
-              className="form-control"
-              placeholder="Search by crop, location, or lot ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              style={{ paddingLeft: '2.4rem' }}
-            />
-            <Search size={18} style={{
-              position: 'absolute',
-              left: '0.85rem',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: 'var(--color-text-muted)'
-            }} />
-          </div>
+      <div className="filter-bar">
+        {/* Status Tabs */}
+        <div className="tab-group">
+          {['ALL', 'AVAILABLE', 'PARTIALLY_SOLD', 'SOLD_OUT'].map((status) => (
+            <button
+              key={status}
+              type="button"
+              onClick={() => setStatusFilter(status)}
+              className={`tab-btn ${statusFilter === status ? 'active' : ''}`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
 
-          {/* Status Tabs */}
-          <div style={{
-            display: 'flex',
-            gap: '0.35rem',
-            backgroundColor: 'var(--color-bg-alt)',
-            padding: '0.25rem',
-            borderRadius: 'var(--radius-md)',
-            overflowX: 'auto'
-          }}>
-            {['ALL', 'AVAILABLE', 'PARTIALLY_SOLD', 'SOLD_OUT'].map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                style={{
-                  padding: '0.4rem 0.85rem',
-                  fontSize: '0.75rem',
-                  fontWeight: 700,
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  cursor: 'pointer',
-                  backgroundColor: statusFilter === status ? 'var(--color-surface)' : 'transparent',
-                  color: statusFilter === status ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                  boxShadow: statusFilter === status ? 'var(--shadow-xs)' : 'none',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
+        {/* Search Box */}
+        <div className="search-wrapper">
+          <Search size={16} className="search-icon" />
+          <input
+            type="text"
+            className="search-input"
+            placeholder="Search crop, location, or lot #..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
       </div>
 
@@ -222,21 +191,17 @@ export const FarmerHarvests = () => {
       {loading ? (
         <LoadingSpinner message="Fetching your harvest lots from database..." />
       ) : filteredHarvests.length === 0 ? (
-        <div className="card" style={{ textAlign: 'center', padding: '3.5rem 1.5rem' }}>
-          <Wheat size={48} color="var(--color-text-muted)" style={{ margin: '0 auto 1rem' }} />
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: 'var(--color-text)' }}>
-            No Harvest Lots Found
-          </h3>
-          <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.875rem', maxWidth: '380px', margin: '0.5rem auto 1.5rem' }}>
-            {searchQuery || statusFilter !== 'ALL'
+        <EmptyState
+          icon={Wheat}
+          title="No Harvest Lots Found"
+          description={
+            searchQuery || statusFilter !== 'ALL'
               ? 'No harvest lots match your search query or status filter.'
-              : 'You have not listed any agricultural harvest lots yet. Add your first lot to start receiving commercial orders.'}
-          </p>
-          <Link to="/farmer/harvests/new" className="btn btn-primary">
-            <Plus size={18} />
-            <span>List Harvest Lot</span>
-          </Link>
-        </div>
+              : 'You have not listed any agricultural harvest lots yet. Add your first lot to start receiving commercial orders.'
+          }
+          actionLabel="List Harvest Lot"
+          onAction={() => navigate('/farmer/harvests/new')}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.25rem' }}>
           {filteredHarvests.map((h) => (

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import buyerApi from '../../services/buyerApi';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import SelectField from '../../components/SelectField';
+import InputField from '../../components/InputField';
 
 export const NewRequirement = () => {
   const navigate = useNavigate();
@@ -128,115 +130,84 @@ export const NewRequirement = () => {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Crop Commodity */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-1">
-                Crop Commodity <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="cropId"
-                value={formData.cropId}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              >
-                {crops.map((c) => (
-                  <option key={c.cropId} value={c.cropId}>
-                    {c.cropName} ({c.category}) — Season: {c.season}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              label="Crop Commodity"
+              required
+              name="cropId"
+              value={formData.cropId}
+              onChange={handleChange}
+              options={crops.map((c) => ({
+                value: c.cropId,
+                label: `${c.cropName} (${c.category}) — Season: ${c.season}`
+              }))}
+            />
 
             {/* Volume & Price */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Required Volume (kg) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="requiredQuantity"
-                  step="0.01"
-                  min="1"
-                  placeholder="e.g. 500"
-                  value={formData.requiredQuantity}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+              <InputField
+                label="Required Volume"
+                required
+                type="number"
+                name="requiredQuantity"
+                step="0.01"
+                min="1"
+                placeholder="e.g. 500"
+                suffix="kg"
+                value={formData.requiredQuantity}
+                onChange={handleChange}
+              />
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Maximum Ceiling Price (₹/kg) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  name="maxPricePerKg"
-                  step="0.01"
-                  min="0.1"
-                  placeholder="e.g. 45.00"
-                  value={formData.maxPricePerKg}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+              <InputField
+                label="Maximum Ceiling Price"
+                required
+                type="number"
+                name="maxPricePerKg"
+                step="0.01"
+                min="0.1"
+                placeholder="e.g. 45.00"
+                suffix="₹/kg"
+                value={formData.maxPricePerKg}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Quality Grade & Required Date */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Minimum Quality Grade Standard <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="minQualityGrade"
-                  value={formData.minQualityGrade}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                >
-                  <option value="A">Grade A (Premium Quality ≥ 80 pts)</option>
-                  <option value="B">Grade B (Standard Commercial ≥ 60 pts)</option>
-                  <option value="C">Grade C (Industrial / Processing Grade)</option>
-                </select>
-              </div>
+              <SelectField
+                label="Minimum Quality Grade Standard"
+                required
+                name="minQualityGrade"
+                value={formData.minQualityGrade}
+                onChange={handleChange}
+                options={[
+                  { value: 'A', label: 'Grade A (Premium Quality ≥ 80 pts)' },
+                  { value: 'B', label: 'Grade B (Standard Commercial ≥ 60 pts)' },
+                  { value: 'C', label: 'Grade C (Industrial / Processing Grade)' },
+                ]}
+              />
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-800 mb-1">
-                  Required-By Date <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  name="requiredByDate"
-                  value={formData.requiredByDate}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-                />
-              </div>
+              <InputField
+                label="Required-By Date"
+                required
+                type="date"
+                name="requiredByDate"
+                value={formData.requiredByDate}
+                onChange={handleChange}
+              />
             </div>
 
             {/* Preferred Delivery Location */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-800 mb-1">
-                Preferred Destination / Receiving Warehouse <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="preferredLocation"
-                maxLength={150}
-                placeholder="e.g. APMC Market Yard, Pune, Maharashtra"
-                value={formData.preferredLocation}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              />
-              <p className="text-xs text-gray-400 mt-1">
-                Used by the matching engine to calculate proximity and logistic convenience scores.
-              </p>
-            </div>
+            <InputField
+              label="Preferred Destination / Receiving Warehouse"
+              required
+              type="text"
+              name="preferredLocation"
+              maxLength={150}
+              placeholder="e.g. APMC Market Yard, Pune, Maharashtra"
+              value={formData.preferredLocation}
+              onChange={handleChange}
+              helperText="Used by the matching engine to calculate proximity and logistic convenience scores."
+            />
 
             {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">

@@ -7,7 +7,7 @@ export const BuyerLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="app-layout">
+    <div className="app-layout portal-buyer">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main-content-wrapper" style={{ marginLeft: 0 }}>
         <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} title="Buyer Procurement Center" />

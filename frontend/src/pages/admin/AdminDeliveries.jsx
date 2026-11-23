@@ -4,6 +4,8 @@ import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import Modal from '../../components/Modal';
+import SelectField from '../../components/SelectField';
+import TextareaField from '../../components/TextareaField';
 import {
   Truck,
   Search,
@@ -138,19 +140,15 @@ export const AdminDeliveries = () => {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      <div className="filter-bar">
         {/* Status Filter Tabs */}
-        <div className="flex flex-wrap gap-1.5">
+        <div className="tab-group">
           {statuses.map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                statusFilter === st
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === st ? 'active' : ''}`}
             >
               {st}
             </button>
@@ -158,20 +156,20 @@ export const AdminDeliveries = () => {
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="search-wrapper">
+          <Search size={16} className="search-icon" />
           <input
             type="text"
             placeholder="Search tracking #, vehicle, crop..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none w-56 sm:w-72"
+            className="search-input"
           />
         </div>
       </div>
 
       {/* Deliveries Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="table-wrapper">
         {loading ? (
           <div className="py-16">
             <LoadingSpinner message="Querying freight fleet dispatches..." />
@@ -181,66 +179,64 @@ export const AdminDeliveries = () => {
             No delivery records found matching the specified filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Delivery ID</th>
-                  <th className="py-3 px-4">Order Ref</th>
-                  <th className="py-3 px-4">Tracking & Vehicle</th>
-                  <th className="py-3 px-4">Commodity & Volume</th>
-                  <th className="py-3 px-4">Delivery Destination</th>
-                  <th className="py-3 px-4">Dispatched At</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Last Updated</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Delivery ID</th>
+                <th>Order Ref</th>
+                <th>Tracking & Vehicle</th>
+                <th>Commodity & Volume</th>
+                <th>Delivery Destination</th>
+                <th>Dispatched At</th>
+                <th>Status</th>
+                <th>Last Updated</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDeliveries.map((d) => (
+                <tr key={d.deliveryId}>
+                  <td className="font-mono font-bold text-gray-500">#DEL-{d.deliveryId}</td>
+                  <td className="font-mono text-purple-700 font-bold">#ORD-{d.orderId}</td>
+                  <td>
+                    <div className="font-mono font-bold text-gray-900">{d.trackingNumber || 'UNASSIGNED'}</div>
+                    <div className="text-[10px] text-gray-400 font-mono">Vehicle: {d.vehicleNumber || '—'}</div>
+                  </td>
+                  <td>
+                    <div className="font-semibold text-gray-900">{d.cropName || 'Commodity'}</div>
+                    <div className="text-[10px] text-gray-500 font-mono">
+                      {d.quantity ? `${Number(d.quantity).toLocaleString()} kg` : '—'}
+                    </div>
+                  </td>
+                  <td className="text-gray-600 max-w-xs truncate" title={d.deliveryAddress}>
+                    <div className="flex items-center gap-1">
+                      <MapPin size={12} className="text-gray-400 shrink-0" />
+                      <span className="truncate">{d.deliveryAddress || 'Direct Pickup'}</span>
+                    </div>
+                  </td>
+                  <td className="text-gray-500">
+                    {d.dispatchedAt ? new Date(d.dispatchedAt).toLocaleString('en-IN') : 'Not Dispatched'}
+                  </td>
+                  <td>
+                    <StatusBadge status={d.deliveryStatus} />
+                  </td>
+                  <td className="text-gray-500">
+                    {d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('en-IN') : '—'}
+                  </td>
+                  <td className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenStatusModal(d)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      <Edit size={12} />
+                      <span>Update</span>
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredDeliveries.map((d) => (
-                  <tr key={d.deliveryId} className="hover:bg-gray-50 transition-colors">
-                    <td className="py-3 px-4 font-mono font-bold text-gray-500">#DEL-{d.deliveryId}</td>
-                    <td className="py-3 px-4 font-mono text-purple-700 font-bold">#ORD-{d.orderId}</td>
-                    <td className="py-3 px-4">
-                      <div className="font-mono font-bold text-gray-900">{d.trackingNumber || 'UNASSIGNED'}</div>
-                      <div className="text-[10px] text-gray-400 font-mono">Vehicle: {d.vehicleNumber || '—'}</div>
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="font-semibold text-gray-900">{d.cropName || 'Commodity'}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">
-                        {d.quantity ? `${Number(d.quantity).toLocaleString()} kg` : '—'}
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 max-w-xs truncate" title={d.deliveryAddress}>
-                      <div className="flex items-center gap-1">
-                        <MapPin size={12} className="text-gray-400 shrink-0" />
-                        <span className="truncate">{d.deliveryAddress || 'Direct Pickup'}</span>
-                      </div>
-                    </td>
-                    <td className="py-3 px-4 text-gray-500">
-                      {d.dispatchedAt ? new Date(d.dispatchedAt).toLocaleString('en-IN') : 'Not Dispatched'}
-                    </td>
-                    <td className="py-3 px-4">
-                      <StatusBadge status={d.deliveryStatus} />
-                    </td>
-                    <td className="py-3 px-4 text-gray-500">
-                      {d.updatedAt ? new Date(d.updatedAt).toLocaleDateString('en-IN') : '—'}
-                    </td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenStatusModal(d)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-md transition-colors"
-                      >
-                        <Edit size={12} />
-                        <span>Update</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
 
@@ -261,29 +257,24 @@ export const AdminDeliveries = () => {
               <div>Current Status: <StatusBadge status={selectedDelivery.deliveryStatus} /></div>
             </div>
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-gray-500">New Delivery Status:</label>
-              <select
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              >
-                {['PENDING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'FAILED'].map((st) => (
-                  <option key={st} value={st}>{st}</option>
-                ))}
-              </select>
-            </div>
+            <SelectField
+              label="New Delivery Status"
+              required
+              value={newStatus}
+              onChange={(e) => setNewStatus(e.target.value)}
+              options={['PENDING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED', 'CANCELLED', 'FAILED'].map((st) => ({
+                value: st,
+                label: st
+              }))}
+            />
 
-            <div className="space-y-1">
-              <label className="text-xs font-bold uppercase text-gray-500">Audit Remarks / Notes:</label>
-              <textarea
-                rows={3}
-                placeholder="Transit updates, vehicle telematics, delay reasons..."
-                value={updateRemarks}
-                onChange={(e) => setUpdateRemarks(e.target.value)}
-                className="w-full p-2.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              />
-            </div>
+            <TextareaField
+              label="Audit Remarks / Notes"
+              rows={3}
+              placeholder="Transit updates, vehicle telematics, delay reasons..."
+              value={updateRemarks}
+              onChange={(e) => setUpdateRemarks(e.target.value)}
+            />
 
             <div className="flex justify-end gap-2 pt-2">
               <button

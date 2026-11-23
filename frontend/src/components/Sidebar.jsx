@@ -20,6 +20,26 @@ import {
 export const Sidebar = ({ isOpen, onClose }) => {
   const { role } = useAuth();
 
+  const roleThemes = {
+    FARMER: {
+      color: '#15803d',
+      bg: '#f0fdf4',
+      tag: 'Farmer Portal',
+    },
+    BUYER: {
+      color: '#2563eb',
+      bg: '#eff6ff',
+      tag: 'Buyer Procurement',
+    },
+    ADMIN: {
+      color: '#0f172a',
+      bg: '#f1f5f9',
+      tag: 'Admin Command',
+    },
+  };
+
+  const currentTheme = roleThemes[role] || roleThemes.FARMER;
+
   const farmerNav = [
     { label: 'Overview', path: '/farmer', icon: LayoutDashboard, end: true },
     { label: 'Farmer Profile', path: '/farmer/profile', icon: Activity },
@@ -101,7 +121,7 @@ export const Sidebar = ({ isOpen, onClose }) => {
             width: '36px',
             height: '36px',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-primary)',
+            backgroundColor: currentTheme.color,
             color: '#ffffff',
             display: 'flex',
             alignItems: 'center',
@@ -113,8 +133,8 @@ export const Sidebar = ({ isOpen, onClose }) => {
             <div style={{ fontSize: '1.125rem', fontWeight: 800, color: 'var(--color-text)', letterSpacing: '-0.02em' }}>
               AgriConnect
             </div>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Farmer-to-Market
+            <div style={{ fontSize: '0.6875rem', fontWeight: 600, color: currentTheme.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {currentTheme.tag}
             </div>
           </div>
         </div>
@@ -151,9 +171,9 @@ export const Sidebar = ({ isOpen, onClose }) => {
                     fontSize: '0.875rem',
                     fontWeight: isActive ? 700 : 500,
                     borderRadius: 'var(--radius-md)',
-                    color: isActive ? 'var(--color-primary)' : 'var(--color-text-secondary)',
-                    backgroundColor: isActive ? 'var(--color-primary-subtle)' : 'transparent',
-                    borderLeft: isActive ? '3px solid var(--color-primary)' : '3px solid transparent',
+                    color: isActive ? currentTheme.color : 'var(--color-text-secondary)',
+                    backgroundColor: isActive ? currentTheme.bg : 'transparent',
+                    borderLeft: isActive ? `3px solid ${currentTheme.color}` : '3px solid transparent',
                     transition: 'all 0.15s ease'
                   })}
                 >

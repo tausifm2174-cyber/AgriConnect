@@ -176,19 +176,15 @@ export const AdminQuality = () => {
       )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      <div className="filter-bar">
         {/* Status Filter Tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="tab-group">
           {['ALL', 'PENDING', 'VERIFIED', 'REJECTED'].map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setSelectedStatus(st)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                selectedStatus === st
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${selectedStatus === st ? 'active' : ''}`}
             >
               {st}
             </button>
@@ -196,20 +192,20 @@ export const AdminQuality = () => {
         </div>
 
         {/* Search */}
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <div className="search-wrapper">
+          <Search size={16} className="search-icon" />
           <input
             type="text"
             placeholder="Search crop, farmer, QA #..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none w-48 sm:w-64"
+            className="search-input"
           />
         </div>
       </div>
 
       {/* Assessments Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="table-wrapper">
         {loading ? (
           <div className="py-16">
             <LoadingSpinner message="Querying quality assessments and lab reports..." />
@@ -219,74 +215,72 @@ export const AdminQuality = () => {
             No quality assessments match the selected filter criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Audit ID</th>
-                  <th className="py-3 px-4">Lot ID</th>
-                  <th className="py-3 px-4">Commodity Crop</th>
-                  <th className="py-3 px-4">Farmer / Producer</th>
-                  <th className="py-3 px-4">Parameters (F / A / S / C / R)</th>
-                  <th className="py-3 px-4">Damage %</th>
-                  <th className="py-3 px-4">Official Score</th>
-                  <th className="py-3 px-4">Grade</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Audit Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredAssessments.map((qa) => {
-                  const gradeBadgeColor =
-                    qa.qualityGrade === 'A'
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : qa.qualityGrade === 'B'
-                      ? 'bg-blue-100 text-blue-800'
-                      : 'bg-amber-100 text-amber-800';
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Audit ID</th>
+                <th>Lot ID</th>
+                <th>Commodity Crop</th>
+                <th>Farmer / Producer</th>
+                <th>Parameters (F / A / S / C / R)</th>
+                <th>Damage %</th>
+                <th>Official Score</th>
+                <th>Grade</th>
+                <th>Status</th>
+                <th>Audit Date</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredAssessments.map((qa) => {
+                const gradeBadgeColor =
+                  qa.qualityGrade === 'A'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : qa.qualityGrade === 'B'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-amber-100 text-amber-800';
 
-                  return (
-                    <tr key={qa.assessmentId} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-gray-500">#QA-{qa.assessmentId}</td>
-                      <td className="py-3 px-4 font-mono text-gray-600">#HAR-{qa.harvestId}</td>
-                      <td className="py-3 px-4 font-bold text-gray-900">{qa.cropName}</td>
-                      <td className="py-3 px-4 font-semibold text-gray-700">{qa.farmerName}</td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-gray-600">
-                        {qa.freshness ?? '—'} / {qa.appearance ?? '—'} / {qa.size ?? '—'} / {qa.color ?? '—'} / {qa.ripeness ?? '—'}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {qa.damagePercentage != null ? `${Number(qa.damagePercentage).toFixed(1)}%` : '—'}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-emerald-700">
-                        {qa.qualityScore != null ? `${Number(qa.qualityScore).toFixed(1)} / 100` : '—'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${gradeBadgeColor}`}>
-                          Grade {qa.qualityGrade || '—'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={qa.verificationStatus} />
-                      </td>
-                      <td className="py-3 px-4 text-gray-500">
-                        {qa.assessmentDate ? new Date(qa.assessmentDate).toLocaleDateString('en-IN') : '—'}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenInspect(qa)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors"
-                        >
-                          <Eye size={12} />
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={qa.assessmentId}>
+                    <td className="font-mono font-bold text-gray-500">#QA-{qa.assessmentId}</td>
+                    <td className="font-mono text-gray-600">#HAR-{qa.harvestId}</td>
+                    <td className="font-bold text-gray-900">{qa.cropName}</td>
+                    <td className="font-semibold text-gray-700">{qa.farmerName}</td>
+                    <td className="font-mono text-[11px] text-gray-600">
+                      {qa.freshness ?? '—'} / {qa.appearance ?? '—'} / {qa.size ?? '—'} / {qa.color ?? '—'} / {qa.ripeness ?? '—'}
+                    </td>
+                    <td className="text-gray-600">
+                      {qa.damagePercentage != null ? `${Number(qa.damagePercentage).toFixed(1)}%` : '—'}
+                    </td>
+                    <td className="font-bold text-emerald-700">
+                      {qa.qualityScore != null ? `${Number(qa.qualityScore).toFixed(1)} / 100` : '—'}
+                    </td>
+                    <td>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold ${gradeBadgeColor}`}>
+                        Grade {qa.qualityGrade || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <StatusBadge status={qa.verificationStatus} />
+                    </td>
+                    <td className="text-gray-500">
+                      {qa.assessmentDate ? new Date(qa.assessmentDate).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenInspect(qa)}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <Eye size={12} />
+                        <span>Inspect</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 

@@ -2,10 +2,20 @@ import React, { useState, useEffect } from 'react';
 import buyerApi from '../../services/buyerApi';
 import DashboardCard from '../../components/DashboardCard';
 import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import Modal from '../../components/Modal';
+import {
+  Truck,
+  Clock,
+  CheckCircle2,
+  Scale,
+  RefreshCw,
+  Search,
+  Check,
+  X
+} from 'lucide-react';
 
 export const BuyerDeliveries = () => {
   const [deliveries, setDeliveries] = useState([]);
@@ -17,14 +27,12 @@ export const BuyerDeliveries = () => {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Confirm Received Modal
+  // Modals
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [confirmRemarks, setConfirmRemarks] = useState('');
   const [confirming, setConfirming] = useState(false);
-
-  // Details Modal
-  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
 
   useEffect(() => {
     loadDeliveries();
@@ -38,8 +46,8 @@ export const BuyerDeliveries = () => {
       const data = res.data?.data || res.data || [];
       setDeliveries(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.error('Error loading deliveries:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to retrieve delivery tracking.');
+      console.error('Failed to load buyer deliveries:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load delivery telemetry.');
     } finally {
       setLoading(false);
     }
@@ -47,7 +55,7 @@ export const BuyerDeliveries = () => {
 
   const handleOpenConfirm = (del) => {
     setSelectedDelivery(del);
-    setConfirmRemarks('Produce received in satisfactory condition and verified weight.');
+    setConfirmRemarks('');
     setConfirmModalOpen(true);
   };
 
@@ -57,17 +65,15 @@ export const BuyerDeliveries = () => {
 
     try {
       setConfirming(true);
-      await buyerApi.confirmDeliveryReceived(selectedDelivery.deliveryId, {
-        remarks: confirmRemarks.trim() || undefined
-      });
+      setError(null);
+      await buyerApi.confirmDelivery(selectedDelivery.deliveryId, confirmRemarks);
+      setActionSuccess(`Delivery #DEL-${selectedDelivery.deliveryId} confirmed received! Associated Order #ORD-${selectedDelivery.orderId} marked as DELIVERED.`);
       setConfirmModalOpen(false);
       setSelectedDelivery(null);
-      setActionSuccess(`Shipment #DEL-${selectedDelivery.deliveryId} confirmed received! Order marked as DELIVERED.`);
-      setTimeout(() => setActionSuccess(null), 4000);
-      loadDeliveries();
+      await loadDeliveries();
     } catch (err) {
-      console.error('Error confirming delivery receipt:', err);
-      alert(err.response?.data?.message || 'Failed to confirm delivery receipt.');
+      console.error('Failed to confirm delivery:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to confirm delivery receipt.');
     } finally {
       setConfirming(false);
     }
@@ -78,26 +84,6 @@ export const BuyerDeliveries = () => {
     setDetailsModalOpen(true);
   };
 
-  // Filtered deliveries
-  const filteredDeliveries = deliveries.filter((d) => {
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'IN_TRANSIT' && ['DISPATCHED', 'IN_TRANSIT'].includes(d.deliveryStatus)) ||
-      d.deliveryStatus === statusFilter;
-
-    const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      !searchTerm ||
-      (d.trackingNumber && d.trackingNumber.toLowerCase().includes(term)) ||
-      (d.vehicleNumber && d.vehicleNumber.toLowerCase().includes(term)) ||
-      (d.cropName && d.cropName.toLowerCase().includes(term)) ||
-      (d.farmerName && d.farmerName.toLowerCase().includes(term)) ||
-      String(d.deliveryId).includes(term) ||
-      String(d.orderId).includes(term);
-
-    return matchesStatus && matchesSearch;
-  });
-
   // KPIs
   const totalDeliveries = deliveries.length;
   const inTransitCount = deliveries.filter((d) => ['DISPATCHED', 'IN_TRANSIT'].includes(d.deliveryStatus)).length;
@@ -106,101 +92,135 @@ export const BuyerDeliveries = () => {
     .filter((d) => d.deliveryStatus === 'DELIVERED')
     .reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
 
+  // Filter
+  const filteredDeliveries = deliveries.filter((del) => {
+    const matchesStatus = statusFilter === 'ALL' || del.deliveryStatus === statusFilter;
+    const term = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !term ||
+      String(del.deliveryId).includes(term) ||
+      String(del.orderId).includes(term) ||
+      del.cropName?.toLowerCase().includes(term) ||
+      del.farmerName?.toLowerCase().includes(term) ||
+      del.trackingNumber?.toLowerCase().includes(term) ||
+      del.vehicleNumber?.toLowerCase().includes(term);
+
+    return matchesStatus && matchesSearch;
+  });
+
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Delivery & Logistics Tracking</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="page-title">
+            <Truck size={26} color="var(--color-primary)" />
+            <span>Delivery & Logistics Tracking</span>
+          </h1>
+          <p className="page-subtitle">
             Track farmer dispatch telematics, vehicle identifiers, transit schedules, and confirm produce receipt.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={loadDeliveries}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+          className="btn btn-secondary"
         >
-          <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Logistics
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh Logistics</span>
         </button>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between text-sm">
-          <span>{actionSuccess}</span>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800 font-bold">
-            &times;
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.25rem',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+            <Check size={18} />
+            <span>{actionSuccess}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setActionSuccess(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <X size={16} />
           </button>
         </div>
       )}
 
-      {error && <ErrorMessage message={error} onRetry={loadDeliveries} />}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI Cards Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Total Shipments"
-          value={totalDeliveries}
-          subtitle="All scheduled dispatches"
-          icon="truck"
-          color="blue"
+          value={loading ? '...' : totalDeliveries}
+          description="All scheduled dispatches"
+          icon={Truck}
+          variant="primary"
         />
         <DashboardCard
-          title="In Transit / On Road"
-          value={inTransitCount}
-          subtitle="Active transit"
-          icon="clock"
-          color={inTransitCount > 0 ? "amber" : "gray"}
+          title="In Transit"
+          value={loading ? '...' : inTransitCount}
+          description="Active on-road freight"
+          icon={Clock}
+          variant="secondary"
+          trend={inTransitCount > 0 ? `+${inTransitCount}` : null}
+          trendLabel={inTransitCount > 0 ? 'Active' : null}
         />
         <DashboardCard
-          title="Received & Completed"
-          value={deliveredCount}
-          subtitle="Confirmed delivered"
-          icon="check-circle"
-          color="emerald"
+          title="Received & Fulfilled"
+          value={loading ? '...' : deliveredCount}
+          description="Confirmed produce received"
+          icon={CheckCircle2}
+          variant="success"
         />
         <DashboardCard
           title="Volume Received"
-          value={`${(totalTonnageReceived / 1000).toFixed(1)} MT`}
-          subtitle={`${totalTonnageReceived.toLocaleString()} kg verified`}
-          icon="scale"
-          color="emerald"
+          value={loading ? '...' : `${(totalTonnageReceived / 1000).toFixed(1)} MT`}
+          description={`${Number(totalTonnageReceived).toLocaleString()} kg verified produce`}
+          icon={Scale}
+          variant="accent"
         />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {['ALL', 'PENDING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === tab
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
             >
               {tab.replace('_', ' ')}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="search-wrapper">
+          <span className="search-icon">
+            <Search size={16} />
+          </span>
           <input
             type="text"
             placeholder="Search tracking, vehicle, crop..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="search-input"
           />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
@@ -209,6 +229,7 @@ export const BuyerDeliveries = () => {
         <LoadingSpinner message="Auditing logistics telematics..." />
       ) : filteredDeliveries.length === 0 ? (
         <EmptyState
+          icon={Truck}
           title="No deliveries found"
           description={
             searchTerm || statusFilter !== 'ALL'
@@ -217,82 +238,92 @@ export const BuyerDeliveries = () => {
           }
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Shipment ID</th>
-                  <th className="px-4 py-3.5 text-left">Order & Crop</th>
-                  <th className="px-4 py-3.5 text-left">Farmer / Origin</th>
-                  <th className="px-4 py-3.5 text-left">Vehicle & Tracking</th>
-                  <th className="px-4 py-3.5 text-right">Volume</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredDeliveries.map((del) => {
-                  const canConfirm = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
-                  return (
-                    <tr key={del.deliveryId} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-semibold text-gray-900">#DEL-{del.deliveryId}</div>
-                        <div className="text-[11px] text-gray-400">
-                          {del.dispatchedAt ? `Dispatched: ${new Date(del.dispatchedAt).toLocaleDateString('en-IN')}` : 'Scheduled'}
-                        </div>
-                      </td>
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Shipment ID</th>
+                <th>Order & Crop</th>
+                <th>Farmer / Origin</th>
+                <th>Vehicle & Tracking</th>
+                <th style={{ textAlign: 'right' }}>Volume</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDeliveries.map((del) => {
+                const canConfirm = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
+                return (
+                  <tr key={del.deliveryId}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>#DEL-{del.deliveryId}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {del.dispatchedAt ? `Dispatched: ${new Date(del.dispatchedAt).toLocaleDateString('en-IN')}` : 'Scheduled'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">#ORD-{del.orderId}</div>
-                        <div className="text-xs text-gray-500">{del.cropName}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>#ORD-{del.orderId}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{del.cropName}</div>
+                    </td>
 
-                      <td className="px-4 py-3.5">
-                        <div className="font-medium text-gray-900">{del.farmerName}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-[150px]" title={del.farmLocation}>
-                          {del.farmLocation || 'Origin Hub'}
-                        </div>
-                      </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{del.farmerName}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={del.farmLocation}>
+                        {del.farmLocation || 'Origin Hub'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-mono text-xs font-bold text-gray-900">
-                          {del.trackingNumber || 'No tracking #'}
-                        </div>
-                        <div className="text-[11px] text-gray-500">{del.vehicleNumber || 'Unassigned vehicle'}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                        {del.trackingNumber || 'Unassigned'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {del.vehicleNumber || 'Unassigned vehicle'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        <div className="font-semibold text-gray-900">{Number(del.quantity).toLocaleString()} kg</div>
-                        <div className="text-xs text-emerald-600 font-semibold">₹{Number(del.totalAmount).toLocaleString('en-IN')}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                        {Number(del.quantity).toLocaleString()} kg
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        ₹{Number(del.totalAmount).toLocaleString('en-IN')}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                        <StatusBadge status={del.deliveryStatus} />
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      <StatusBadge status={del.deliveryStatus} />
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-2">
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
                         {canConfirm && (
                           <button
+                            type="button"
                             onClick={() => handleOpenConfirm(del)}
-                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                            className="btn btn-primary btn-sm"
+                            style={{ padding: '0.3rem 0.65rem' }}
                           >
                             Confirm Received
                           </button>
                         )}
                         <button
+                          type="button"
                           onClick={() => handleOpenDetails(del)}
-                          className="px-2 py-1 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.3rem 0.65rem' }}
                         >
                           Details
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -302,36 +333,36 @@ export const BuyerDeliveries = () => {
           isOpen={confirmModalOpen}
           onClose={() => setConfirmModalOpen(false)}
           title={`Confirm Produce Receipt — Shipment #DEL-${selectedDelivery.deliveryId}`}
-          maxWidth="max-w-md"
+          maxWidth="460px"
         >
-          <form onSubmit={handleConfirmReceivedSubmit} className="space-y-4 text-sm">
-            <p className="text-xs text-gray-600 leading-relaxed">
+          <form onSubmit={handleConfirmReceivedSubmit} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
               Confirming receipt marks both the delivery and order as <strong>DELIVERED</strong>. This verifies that you have received <strong>{Number(selectedDelivery.quantity).toLocaleString()} kg</strong> of {selectedDelivery.cropName}.
             </p>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Receipt Remarks & Condition</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Receipt Remarks & Condition</label>
               <textarea
                 rows={3}
                 value={confirmRemarks}
                 onChange={(e) => setConfirmRemarks(e.target.value)}
                 placeholder="Produce received in verified quality condition..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
                 type="button"
                 onClick={() => setConfirmModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={confirming}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg text-sm disabled:opacity-50 transition-colors shadow-sm"
+                className="btn btn-primary"
               >
                 {confirming ? 'Confirming...' : 'Confirm Receipt'}
               </button>
@@ -346,63 +377,68 @@ export const BuyerDeliveries = () => {
           isOpen={detailsModalOpen}
           onClose={() => setDetailsModalOpen(false)}
           title={`Delivery Audit: #DEL-${selectedDelivery.deliveryId}`}
-          maxWidth="max-w-xl"
+          maxWidth="560px"
         >
-          <div className="space-y-4 text-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
               <div>
-                <span className="text-xs text-gray-500 uppercase">Status</span>
-                <div className="mt-1"><StatusBadge status={selectedDelivery.deliveryStatus} /></div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Status</span>
+                <div style={{ marginTop: '0.25rem' }}>
+                  <StatusBadge status={selectedDelivery.deliveryStatus} />
+                </div>
               </div>
-              <div className="text-right">
-                <span className="text-xs text-gray-500 uppercase">Order ID</span>
-                <div className="text-base font-bold text-gray-900">#ORD-{selectedDelivery.orderId}</div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Associated Order</span>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                  #ORD-{selectedDelivery.orderId}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <span className="text-xs text-gray-500 font-semibold uppercase">Produce & Volume</span>
-                <div className="font-bold text-gray-900 mt-1">{selectedDelivery.cropName}</div>
-                <div className="text-xs text-emerald-700 font-semibold mt-0.5">
-                  {Number(selectedDelivery.quantity).toLocaleString()} kg @ ₹{selectedDelivery.agreedPricePerKg}/kg
+            <div className="form-row">
+              <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Produce & Volume</div>
+                <div style={{ fontWeight: 700, color: 'var(--color-text)', marginTop: '0.25rem' }}>{selectedDelivery.cropName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700, marginTop: '0.25rem' }}>
+                  {Number(selectedDelivery.quantity).toLocaleString()} kg {selectedDelivery.agreedPricePerKg ? `@ ₹${selectedDelivery.agreedPricePerKg}/kg` : (selectedDelivery.totalAmount ? `(₹${Number(selectedDelivery.totalAmount).toLocaleString('en-IN')})` : '')}
                 </div>
               </div>
 
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <span className="text-xs text-gray-500 font-semibold uppercase">Origin Farmer</span>
-                <div className="font-bold text-gray-900 mt-1">{selectedDelivery.farmerName}</div>
-                <div className="text-xs text-gray-600">{selectedDelivery.farmLocation}</div>
+              <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Origin Farmer</div>
+                <div style={{ fontWeight: 700, color: 'var(--color-text)', marginTop: '0.25rem' }}>{selectedDelivery.farmerName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.15rem' }}>{selectedDelivery.farmLocation}</div>
               </div>
             </div>
 
-            <div className="p-3 bg-gray-50 rounded-lg space-y-1 text-xs">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Destination Address:</span>
-                <span className="font-medium text-gray-800 text-right">{selectedDelivery.deliveryAddress}</span>
+            <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Destination Address:</span>
+                <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{selectedDelivery.deliveryAddress}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Vehicle / Transport ID:</span>
-                <span className="font-mono font-bold text-gray-900">{selectedDelivery.vehicleNumber || 'Unassigned'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Vehicle / Transport ID:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedDelivery.vehicleNumber || 'Unassigned'}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Tracking Number:</span>
-                <span className="font-mono font-bold text-gray-900">{selectedDelivery.trackingNumber || 'Unassigned'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Tracking Number:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedDelivery.trackingNumber || 'Unassigned'}</span>
               </div>
               {selectedDelivery.remarks && (
-                <div className="flex justify-between pt-1 border-t border-gray-200">
-                  <span className="text-gray-500">Remarks:</span>
-                  <span className="text-gray-700">{selectedDelivery.remarks}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.35rem' }}>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>Remarks:</span>
+                  <span style={{ color: 'var(--color-text)' }}>{selectedDelivery.remarks}</span>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-gray-100">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
+                type="button"
                 onClick={() => setDetailsModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary"
               >
-                Close
+                Close Audit
               </button>
             </div>
           </div>

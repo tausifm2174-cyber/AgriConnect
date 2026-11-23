@@ -1,31 +1,49 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import farmerApi from '../../services/farmerApi';
 import DashboardCard from '../../components/DashboardCard';
 import StatusBadge from '../../components/StatusBadge';
-import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import Modal from '../../components/Modal';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import SelectField from '../../components/SelectField';
+import {
+  Truck,
+  Clock,
+  CheckCircle2,
+  PackageCheck,
+  Plus,
+  RefreshCw,
+  Search,
+  Check,
+  X,
+  FileText
+} from 'lucide-react';
 
 export const FarmerDeliveries = () => {
+  const { user } = useAuth();
   const [deliveries, setDeliveries] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionSuccess, setActionSuccess] = useState(null);
 
-  // Filters
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Modals
+  // Modals state
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [shipModalOpen, setShipModalOpen] = useState(false);
   const [detailsModalOpen, setDetailsModalOpen] = useState(false);
   const [selectedDelivery, setSelectedDelivery] = useState(null);
+  const [completeConfirmOpen, setCompleteConfirmOpen] = useState(false);
+  const [deliveryToComplete, setDeliveryToComplete] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Form states
-  const [actionLoading, setActionLoading] = useState(false);
   const [createForm, setCreateForm] = useState({
     orderId: '',
     deliveryAddress: '',
@@ -33,11 +51,12 @@ export const FarmerDeliveries = () => {
     trackingNumber: '',
     remarks: ''
   });
+
   const [shipForm, setShipForm] = useState({
     trackingNumber: '',
     vehicleNumber: '',
-    remarks: '',
-    deliveryAddress: ''
+    deliveryAddress: '',
+    remarks: ''
   });
 
   useEffect(() => {
@@ -52,35 +71,31 @@ export const FarmerDeliveries = () => {
         farmerApi.getDeliveries(),
         farmerApi.getOrders()
       ]);
-
-      const delData = delRes.data?.data || delRes.data || [];
-      const ordData = ordRes.data?.data || ordRes.data || [];
-
-      setDeliveries(Array.isArray(delData) ? delData : []);
-      setOrders(Array.isArray(ordData) ? ordData : []);
+      setDeliveries(delRes.data || []);
+      setOrders(ordRes.data || []);
     } catch (err) {
-      console.error('Error loading deliveries:', err);
-      setError(err.response?.data?.message || 'Failed to load delivery and logistics records.');
+      console.error('Failed to load farmer deliveries:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to load deliveries data.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Orders eligible for dispatch: ACCEPTED orders that do not already have a delivery record
+  // Orders eligible for new delivery dispatch (ACCEPTED/CONFIRMED that don't already have a delivery)
   const existingDeliveryOrderIds = new Set(deliveries.map((d) => d.orderId));
   const dispatchEligibleOrders = orders.filter(
-    (o) => o.status === 'ACCEPTED' && !existingDeliveryOrderIds.has(o.orderId)
+    (o) => ['ACCEPTED', 'CONFIRMED'].includes(o.status) && !existingDeliveryOrderIds.has(o.orderId)
   );
 
-  // Handlers
+  // Action handlers
   const handleOpenCreate = () => {
     if (dispatchEligibleOrders.length > 0) {
       const first = dispatchEligibleOrders[0];
       setCreateForm({
         orderId: first.orderId,
-        deliveryAddress: first.farmLocation || 'Mandatory shipment destination',
+        deliveryAddress: first.farmLocation || '',
         vehicleNumber: '',
-        trackingNumber: '',
+        trackingNumber: `TRK-${Date.now().toString().slice(-6)}`,
         remarks: ''
       });
     } else {
@@ -88,7 +103,7 @@ export const FarmerDeliveries = () => {
         orderId: '',
         deliveryAddress: '',
         vehicleNumber: '',
-        trackingNumber: '',
+        trackingNumber: `TRK-${Date.now().toString().slice(-6)}`,
         remarks: ''
       });
     }
@@ -97,39 +112,38 @@ export const FarmerDeliveries = () => {
 
   const handleCreateSubmit = async (e) => {
     e.preventDefault();
-    if (!createForm.orderId || !createForm.deliveryAddress) {
-      alert('Order ID and delivery address are required.');
+    if (!createForm.orderId) {
+      setError('Please select an accepted order for dispatch.');
       return;
     }
-
     try {
       setActionLoading(true);
+      setError(null);
       await farmerApi.createDelivery({
         orderId: Number(createForm.orderId),
-        deliveryAddress: createForm.deliveryAddress.trim(),
-        vehicleNumber: createForm.vehicleNumber.trim() || undefined,
-        trackingNumber: createForm.trackingNumber.trim() || undefined,
-        remarks: createForm.remarks.trim() || undefined
+        deliveryAddress: createForm.deliveryAddress,
+        vehicleNumber: createForm.vehicleNumber,
+        trackingNumber: createForm.trackingNumber,
+        remarks: createForm.remarks
       });
+      setActionSuccess(`Delivery dispatch record created for Order #ORD-${createForm.orderId}!`);
       setCreateModalOpen(false);
-      setActionSuccess(`Delivery record created successfully for Order #${createForm.orderId}!`);
-      setTimeout(() => setActionSuccess(null), 4000);
-      loadData();
+      await loadData();
     } catch (err) {
-      console.error('Error creating delivery:', err);
-      alert(err.response?.data?.message || 'Failed to create delivery record.');
+      console.error('Failed to create delivery:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to create dispatch record.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleOpenShip = (del) => {
-    setSelectedDelivery(del);
+  const handleOpenShip = (delivery) => {
+    setSelectedDelivery(delivery);
     setShipForm({
-      trackingNumber: del.trackingNumber || '',
-      vehicleNumber: del.vehicleNumber || '',
-      remarks: del.remarks || '',
-      deliveryAddress: del.deliveryAddress || ''
+      trackingNumber: delivery.trackingNumber || `TRK-${Date.now().toString().slice(-6)}`,
+      vehicleNumber: delivery.vehicleNumber || '',
+      deliveryAddress: delivery.deliveryAddress || '',
+      remarks: delivery.remarks || ''
     });
     setShipModalOpen(true);
   };
@@ -137,275 +151,290 @@ export const FarmerDeliveries = () => {
   const handleShipSubmit = async (e) => {
     e.preventDefault();
     if (!selectedDelivery) return;
-
     try {
       setActionLoading(true);
-      await farmerApi.shipDelivery(selectedDelivery.deliveryId, {
-        trackingNumber: shipForm.trackingNumber.trim() || undefined,
-        vehicleNumber: shipForm.vehicleNumber.trim() || undefined,
-        remarks: shipForm.remarks.trim() || undefined,
-        deliveryAddress: shipForm.deliveryAddress.trim() || undefined
-      });
+      setError(null);
+      await farmerApi.shipDelivery(selectedDelivery.deliveryId, shipForm);
+      setActionSuccess(`Shipment #DEL-${selectedDelivery.deliveryId} dispatched successfully!`);
       setShipModalOpen(false);
-      setSelectedDelivery(null);
-      setActionSuccess(`Shipment #${selectedDelivery.deliveryId} dispatched successfully! Order marked as SHIPPED.`);
-      setTimeout(() => setActionSuccess(null), 4000);
-      loadData();
+      await loadData();
     } catch (err) {
-      console.error('Error shipping delivery:', err);
-      alert(err.response?.data?.message || 'Failed to dispatch shipment.');
+      console.error('Failed to dispatch shipment:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to dispatch shipment.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleCompleteDelivery = async (del) => {
-    if (!window.confirm(`Confirm delivery completion for Shipment #${del.deliveryId}? This marks the order as DELIVERED and triggers transaction sale recording.`)) {
-      return;
-    }
+  const handleCompleteDelivery = (delivery) => {
+    setDeliveryToComplete(delivery);
+    setCompleteConfirmOpen(true);
+  };
 
+  const handleConfirmCompleteDelivery = async () => {
+    if (!deliveryToComplete) return;
     try {
       setActionLoading(true);
-      await farmerApi.markDelivered(del.deliveryId);
-      setActionSuccess(`Shipment #${del.deliveryId} marked as DELIVERED! Commercial sale finalized.`);
-      setTimeout(() => setActionSuccess(null), 4000);
-      loadData();
+      setError(null);
+      await farmerApi.completeDelivery(deliveryToComplete.deliveryId);
+      setActionSuccess(`Shipment #DEL-${deliveryToComplete.deliveryId} marked as DELIVERED!`);
+      setCompleteConfirmOpen(false);
+      setDeliveryToComplete(null);
+      await loadData();
     } catch (err) {
-      console.error('Error completing delivery:', err);
-      alert(err.response?.data?.message || 'Failed to complete delivery.');
+      console.error('Failed to complete delivery:', err);
+      setError(err.response?.data?.message || err.message || 'Failed to mark delivery as completed.');
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleViewDetails = (del) => {
-    setSelectedDelivery(del);
+  const handleViewDetails = (delivery) => {
+    setSelectedDelivery(delivery);
     setDetailsModalOpen(true);
   };
 
   // Filtered deliveries
-  const filteredDeliveries = deliveries.filter((d) => {
-    const matchesStatus =
-      statusFilter === 'ALL' ||
-      (statusFilter === 'IN_TRANSIT' && ['DISPATCHED', 'IN_TRANSIT'].includes(d.deliveryStatus)) ||
-      d.deliveryStatus === statusFilter;
-
-    const searchLower = searchTerm.toLowerCase();
+  const filteredDeliveries = deliveries.filter((del) => {
+    const matchesStatus = statusFilter === 'ALL' || del.deliveryStatus === statusFilter;
+    const term = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      !searchTerm ||
-      (d.trackingNumber && d.trackingNumber.toLowerCase().includes(searchLower)) ||
-      (d.vehicleNumber && d.vehicleNumber.toLowerCase().includes(searchLower)) ||
-      (d.cropName && d.cropName.toLowerCase().includes(searchLower)) ||
-      (d.buyerName && d.buyerName.toLowerCase().includes(searchLower)) ||
-      String(d.deliveryId).includes(searchLower) ||
-      String(d.orderId).includes(searchLower);
+      !term ||
+      String(del.deliveryId).includes(term) ||
+      String(del.orderId).includes(term) ||
+      del.cropName?.toLowerCase().includes(term) ||
+      del.buyerName?.toLowerCase().includes(term) ||
+      del.trackingNumber?.toLowerCase().includes(term) ||
+      del.vehicleNumber?.toLowerCase().includes(term);
 
     return matchesStatus && matchesSearch;
   });
 
-  // KPIs
+  // KPI calculations
   const totalDeliveries = deliveries.length;
   const inTransitCount = deliveries.filter((d) => ['DISPATCHED', 'IN_TRANSIT'].includes(d.deliveryStatus)).length;
-  const completedCount = deliveries.filter((d) => d.deliveryStatus === 'DELIVERED').length;
+  const deliveredCount = deliveries.filter((d) => d.deliveryStatus === 'DELIVERED').length;
   const totalWeightDelivered = deliveries
     .filter((d) => d.deliveryStatus === 'DELIVERED')
     .reduce((sum, d) => sum + (Number(d.quantity) || 0), 0);
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Delivery & Logistics</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="page-title">
+            <Truck size={26} color="var(--color-primary)" />
+            <span>Delivery & Logistics</span>
+          </h1>
+          <p className="page-subtitle">
             Dispatch contracted harvest lots, update vehicle & tracking identifiers, and confirm buyer receipt.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           {dispatchEligibleOrders.length > 0 && (
             <button
+              type="button"
               onClick={handleOpenCreate}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
+              className="btn btn-primary"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Create Dispatch ({dispatchEligibleOrders.length} ready)
+              <Plus size={16} />
+              <span>Create Dispatch ({dispatchEligibleOrders.length} ready)</span>
             </button>
           )}
 
           <button
+            type="button"
             onClick={loadData}
             disabled={loading}
-            className="inline-flex items-center gap-2 px-3.5 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+            className="btn btn-secondary"
           >
-            <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Refresh
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-            </svg>
-            <span className="text-sm font-medium">{actionSuccess}</span>
+        <div style={{
+          padding: '0.85rem 1.25rem',
+          backgroundColor: 'var(--color-primary-subtle)',
+          border: '1px solid var(--color-primary-border)',
+          borderRadius: 'var(--radius-lg)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '1.25rem',
+          fontSize: '0.875rem'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+            <Check size={18} />
+            <span>{actionSuccess}</span>
           </div>
-          <button onClick={() => setActionSuccess(null)} className="text-emerald-600 hover:text-emerald-800">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          <button
+            type="button"
+            onClick={() => setActionSuccess(null)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)' }}
+          >
+            <X size={16} />
           </button>
         </div>
       )}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
+
+      {/* KPI Cards Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Total Shipments"
-          value={totalDeliveries}
-          subtitle="All logistics records"
-          icon="truck"
-          color="blue"
+          value={loading ? '...' : totalDeliveries}
+          description="All logistics dispatches"
+          icon={Truck}
+          variant="primary"
         />
         <DashboardCard
-          title="In Transit / Dispatched"
-          value={inTransitCount}
-          subtitle="On the road"
-          icon="clock"
-          color={inTransitCount > 0 ? "amber" : "gray"}
+          title="In Transit"
+          value={loading ? '...' : inTransitCount}
+          description="Actively on the road to buyers"
+          icon={Clock}
+          variant="secondary"
+          trend={inTransitCount > 0 ? `+${inTransitCount}` : null}
+          trendLabel={inTransitCount > 0 ? 'Active' : null}
         />
         <DashboardCard
-          title="Successfully Delivered"
-          value={completedCount}
-          subtitle="Confirmed by parties"
-          icon="check-circle"
-          color="emerald"
+          title="Delivered Orders"
+          value={loading ? '...' : deliveredCount}
+          description="Successfully fulfilled contracts"
+          icon={CheckCircle2}
+          variant="success"
         />
         <DashboardCard
-          title="Weight Delivered"
-          value={`${(totalWeightDelivered / 1000).toFixed(1)} MT`}
-          subtitle={`${totalWeightDelivered.toLocaleString()} kg total`}
-          icon="scale"
-          color="emerald"
+          title="Delivered Volume"
+          value={loading ? '...' : `${Number(totalWeightDelivered).toLocaleString()} kg`}
+          description="Produce safely received by buyers"
+          icon={PackageCheck}
+          variant="accent"
         />
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Filters and Search Bar */}
+      <div className="filter-bar">
+        <div className="tab-group">
           {['ALL', 'PENDING', 'DISPATCHED', 'IN_TRANSIT', 'DELIVERED'].map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === tab
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
             >
               {tab.replace('_', ' ')}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="search-wrapper">
+          <span className="search-icon">
+            <Search size={16} />
+          </span>
           <input
             type="text"
             placeholder="Search tracking, vehicle, order #..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="search-input"
           />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
       {/* Main Content */}
       {loading ? (
         <LoadingSpinner message="Loading delivery shipments..." />
-      ) : error ? (
-        <ErrorMessage message={error} onRetry={loadData} />
       ) : filteredDeliveries.length === 0 ? (
         <EmptyState
+          icon={Truck}
           title="No delivery shipments found"
           description={
             dispatchEligibleOrders.length > 0
               ? `You have ${dispatchEligibleOrders.length} accepted order(s) awaiting dispatch creation!`
               : 'You do not have any active shipments. Deliveries are generated once purchase orders are accepted.'
           }
-          actionLabel={dispatchEligibleOrders.length > 0 ? "Create Dispatch" : "View Orders"}
+          actionLabel={dispatchEligibleOrders.length > 0 ? 'Create Dispatch' : 'View Orders'}
           onAction={dispatchEligibleOrders.length > 0 ? handleOpenCreate : undefined}
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Shipment ID</th>
-                  <th className="px-4 py-3.5 text-left">Order & Crop</th>
-                  <th className="px-4 py-3.5 text-left">Buyer & Address</th>
-                  <th className="px-4 py-3.5 text-left">Tracking & Vehicle</th>
-                  <th className="px-4 py-3.5 text-right">Quantity</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredDeliveries.map((del) => {
-                  const isPending = del.deliveryStatus === 'PENDING';
-                  const isShipped = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
-                  return (
-                    <tr key={del.deliveryId} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-semibold text-gray-900">#DEL-{del.deliveryId}</div>
-                        <div className="text-xs text-gray-500">
-                          {del.dispatchedAt
-                            ? `Dispatched: ${new Date(del.dispatchedAt).toLocaleDateString('en-IN')}`
-                            : 'Created'}
-                        </div>
-                      </td>
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Shipment ID</th>
+                <th>Order & Crop</th>
+                <th>Buyer & Address</th>
+                <th>Tracking & Vehicle</th>
+                <th style={{ textAlign: 'right' }}>Quantity</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredDeliveries.map((del) => {
+                const isPending = del.deliveryStatus === 'PENDING';
+                const isShipped = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
+                return (
+                  <tr key={del.deliveryId}>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>#DEL-{del.deliveryId}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {del.dispatchedAt
+                          ? `Dispatched: ${new Date(del.dispatchedAt).toLocaleDateString('en-IN')}`
+                          : 'Created'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-medium text-gray-900">#ORD-{del.orderId}</div>
-                        <div className="text-xs text-gray-500">{del.cropName || 'Crop'} ({del.cropCategory || 'General'})</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>#ORD-{del.orderId}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {del.cropName || 'Crop'} ({del.cropCategory || 'General'})
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5">
-                        <div className="font-medium text-gray-900">{del.buyerName || 'Buyer'}</div>
-                        <div className="text-xs text-gray-500 truncate max-w-xs" title={del.deliveryAddress}>
-                          {del.deliveryAddress || 'Address not specified'}
-                        </div>
-                      </td>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{del.buyerName || 'Buyer'}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={del.deliveryAddress}>
+                        {del.deliveryAddress || 'Address not specified'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-mono text-xs font-semibold text-gray-900">
-                          {del.trackingNumber || 'No tracking #'}
-                        </div>
-                        <div className="text-xs text-gray-500">{del.vehicleNumber || 'No vehicle #'}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '0.8rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                        {del.trackingNumber || 'Unassigned'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {del.vehicleNumber || 'Unassigned'}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                        <div className="font-medium text-gray-900">{Number(del.quantity).toLocaleString()} kg</div>
-                        <div className="text-xs text-emerald-600 font-semibold">₹{Number(del.totalAmount).toLocaleString('en-IN')}</div>
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <div style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                        {Number(del.quantity).toLocaleString()} kg
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                        ₹{Number(del.totalAmount).toLocaleString('en-IN')}
+                      </div>
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                        <StatusBadge status={del.deliveryStatus} />
-                      </td>
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'center' }}>
+                      <StatusBadge status={del.deliveryStatus} />
+                    </td>
 
-                      <td className="px-4 py-3.5 whitespace-nowrap text-right space-x-2">
+                    <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
                         {isPending && (
                           <button
+                            type="button"
                             onClick={() => handleOpenShip(del)}
-                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 text-white shadow-sm transition-colors"
-                            title="Mark as Shipped"
+                            className="btn btn-accent btn-sm"
+                            title="Dispatch lot for transit"
                           >
                             Ship Lot
                           </button>
@@ -413,27 +442,29 @@ export const FarmerDeliveries = () => {
 
                         {isShipped && (
                           <button
+                            type="button"
                             onClick={() => handleCompleteDelivery(del)}
-                            className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
-                            title="Mark as Delivered"
+                            className="btn btn-primary btn-sm"
+                            title="Confirm delivery receipt"
                           >
                             Delivered
                           </button>
                         )}
 
                         <button
+                          type="button"
                           onClick={() => handleViewDetails(del)}
-                          className="px-2 py-1 text-xs font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                          className="btn btn-secondary btn-sm"
                         >
                           Details
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -443,38 +474,33 @@ export const FarmerDeliveries = () => {
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
           title="Create Dispatch Record"
-          maxWidth="max-w-lg"
+          maxWidth="520px"
         >
-          <form onSubmit={handleCreateSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Accepted Order <span className="text-red-500">*</span>
-              </label>
-              <select
-                required
-                value={createForm.orderId}
-                onChange={(e) => {
-                  const selOrd = dispatchEligibleOrders.find((o) => o.orderId === Number(e.target.value));
-                  setCreateForm({
-                    ...createForm,
-                    orderId: e.target.value,
-                    deliveryAddress: selOrd ? selOrd.farmLocation || createForm.deliveryAddress : createForm.deliveryAddress
-                  });
-                }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-              >
-                <option value="">Select accepted order...</option>
-                {dispatchEligibleOrders.map((ord) => (
-                  <option key={ord.orderId} value={ord.orderId}>
-                    #ORD-{ord.orderId} — {ord.cropName} ({ord.quantity} kg, ₹{ord.totalAmount}) — Buyer: {ord.buyerName}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <form onSubmit={handleCreateSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
+            <SelectField
+              label="Accepted Order"
+              required
+              value={createForm.orderId}
+              onChange={(e) => {
+                const selOrd = dispatchEligibleOrders.find((o) => o.orderId === Number(e.target.value));
+                setCreateForm({
+                  ...createForm,
+                  orderId: e.target.value,
+                  deliveryAddress: selOrd ? selOrd.farmLocation || createForm.deliveryAddress : createForm.deliveryAddress
+                });
+              }}
+              options={[
+                { value: '', label: 'Select accepted order...' },
+                ...dispatchEligibleOrders.map((ord) => ({
+                  value: ord.orderId,
+                  label: `#ORD-${ord.orderId} — ${ord.cropName} (${ord.quantity} kg, ₹${ord.totalAmount}) — Buyer: ${ord.buyerName}`
+                }))
+              ]}
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delivery Address <span className="text-red-500">*</span>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">
+                Delivery Address <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -482,56 +508,56 @@ export const FarmerDeliveries = () => {
                 value={createForm.deliveryAddress}
                 onChange={(e) => setCreateForm({ ...createForm, deliveryAddress: e.target.value })}
                 placeholder="Buyer warehouse or delivery address"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle Number</label>
+            <div className="form-row">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Vehicle Number</label>
                 <input
                   type="text"
                   value={createForm.vehicleNumber}
                   onChange={(e) => setCreateForm({ ...createForm, vehicleNumber: e.target.value })}
                   placeholder="e.g. MH-12-AB-1234"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="form-control"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label className="form-label">Tracking Number</label>
                 <input
                   type="text"
                   value={createForm.trackingNumber}
                   onChange={(e) => setCreateForm({ ...createForm, trackingNumber: e.target.value })}
                   placeholder="e.g. TRK-88291"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  className="form-control"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Logistics Remarks</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Logistics Remarks</label>
               <textarea
                 rows={2}
                 value={createForm.remarks}
                 onChange={(e) => setCreateForm({ ...createForm, remarks: e.target.value })}
                 placeholder="Driver contact, transit temperature, special handling..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
                 type="button"
                 onClick={() => setCreateModalOpen(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm disabled:opacity-50"
+                className="btn btn-primary"
               >
                 {actionLoading ? 'Creating...' : 'Create Delivery'}
               </button>
@@ -546,69 +572,69 @@ export const FarmerDeliveries = () => {
           isOpen={shipModalOpen}
           onClose={() => setShipModalOpen(false)}
           title={`Dispatch Shipment #DEL-${selectedDelivery.deliveryId}`}
-          maxWidth="max-w-md"
+          maxWidth="460px"
         >
-          <form onSubmit={handleShipSubmit} className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Update shipment details and mark the order as <strong>SHIPPED</strong>.
+          <form onSubmit={handleShipSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '1.25rem' }}>
+            <p style={{ fontSize: '0.85rem', color: 'var(--color-text-secondary)' }}>
+              Update shipment details and mark the order as <strong>DISPATCHED</strong>.
             </p>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tracking Number</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Tracking Number</label>
               <input
                 type="text"
                 value={shipForm.trackingNumber}
                 onChange={(e) => setShipForm({ ...shipForm, trackingNumber: e.target.value })}
                 placeholder="e.g. TRK-992144"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Vehicle / Transport ID</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Vehicle / Transport ID</label>
               <input
                 type="text"
                 value={shipForm.vehicleNumber}
                 onChange={(e) => setShipForm({ ...shipForm, vehicleNumber: e.target.value })}
                 placeholder="e.g. KA-01-EF-4321"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Destination Address</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Destination Address</label>
               <input
                 type="text"
                 value={shipForm.deliveryAddress}
                 onChange={(e) => setShipForm({ ...shipForm, deliveryAddress: e.target.value })}
                 placeholder="Delivery address"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label className="form-label">Remarks</label>
               <textarea
                 rows={2}
                 value={shipForm.remarks}
                 onChange={(e) => setShipForm({ ...shipForm, remarks: e.target.value })}
                 placeholder="Transit updates..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                className="form-control"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-100">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
                 type="button"
                 onClick={() => setShipModalOpen(false)}
-                className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg"
+                className="btn btn-secondary"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={actionLoading}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm disabled:opacity-50"
+                className="btn btn-accent"
               >
                 {actionLoading ? 'Dispatching...' : 'Confirm Dispatch'}
               </button>
@@ -623,86 +649,101 @@ export const FarmerDeliveries = () => {
           isOpen={detailsModalOpen}
           onClose={() => setDetailsModalOpen(false)}
           title={`Delivery Audit: #DEL-${selectedDelivery.deliveryId}`}
-          maxWidth="max-w-2xl"
+          maxWidth="560px"
         >
-          <div className="space-y-4 text-sm">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+          <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '0.75rem', borderBottom: '1px solid var(--color-border)' }}>
               <div>
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Status</span>
-                <div className="mt-1"><StatusBadge status={selectedDelivery.deliveryStatus} /></div>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Shipment Status
+                </span>
+                <div style={{ marginTop: '0.25rem' }}>
+                  <StatusBadge status={selectedDelivery.deliveryStatus} />
+                </div>
               </div>
-              <div className="text-right">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Associated Order</span>
-                <div className="text-lg font-bold text-gray-900">#ORD-{selectedDelivery.orderId}</div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Associated Order
+                </span>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                  #ORD-{selectedDelivery.orderId}
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Crop & Volume</div>
-                <div className="mt-1 font-semibold text-gray-900">{selectedDelivery.cropName}</div>
-                <div className="text-xs text-gray-600">Category: {selectedDelivery.cropCategory}</div>
-                <div className="text-xs text-emerald-700 font-semibold mt-1">
+            <div className="form-row">
+              <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Produce Details</div>
+                <div style={{ fontWeight: 700, color: 'var(--color-text)', marginTop: '0.25rem' }}>{selectedDelivery.cropName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Category: {selectedDelivery.cropCategory}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 700, marginTop: '0.25rem' }}>
                   {Number(selectedDelivery.quantity).toLocaleString()} kg @ ₹{selectedDelivery.agreedPricePerKg}/kg
                 </div>
               </div>
 
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <div className="text-xs font-semibold text-gray-500 uppercase">Buyer Info</div>
-                <div className="mt-1 font-semibold text-gray-900">{selectedDelivery.buyerName}</div>
-                <div className="text-xs text-gray-600">{selectedDelivery.businessName || 'Direct Wholesale'}</div>
-                <div className="text-xs text-gray-600">{selectedDelivery.buyerEmail} | {selectedDelivery.buyerPhone || 'No Phone'}</div>
+              <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Buyer Stakeholder</div>
+                <div style={{ fontWeight: 700, color: 'var(--color-text)', marginTop: '0.25rem' }}>{selectedDelivery.buyerName}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{selectedDelivery.businessName || 'Direct Wholesale'}</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                  {selectedDelivery.buyerEmail} | {selectedDelivery.buyerPhone || 'No Phone'}
+                </div>
               </div>
             </div>
 
-            <div className="p-3 bg-gray-50 rounded-lg space-y-1.5">
-              <div className="text-xs font-semibold text-gray-500 uppercase">Logistics & Tracking</div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Destination:</span>
-                <span className="font-medium text-gray-800 text-right">{selectedDelivery.deliveryAddress}</span>
+            <div style={{ padding: '0.85rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.8rem' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase' }}>Logistics & Routing</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Destination:</span>
+                <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>{selectedDelivery.deliveryAddress}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Vehicle Number:</span>
-                <span className="font-mono font-medium text-gray-800">{selectedDelivery.vehicleNumber || 'Unassigned'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Vehicle #:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedDelivery.vehicleNumber || 'Unassigned'}</span>
               </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Tracking Number:</span>
-                <span className="font-mono font-medium text-gray-800">{selectedDelivery.trackingNumber || 'Unassigned'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Tracking #:</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{selectedDelivery.trackingNumber || 'Unassigned'}</span>
               </div>
               {selectedDelivery.remarks && (
-                <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
-                  <span className="text-gray-500">Remarks:</span>
-                  <span className="text-gray-700">{selectedDelivery.remarks}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--color-border-subtle)', paddingTop: '0.35rem' }}>
+                  <span style={{ color: 'var(--color-text-secondary)' }}>Remarks:</span>
+                  <span style={{ color: 'var(--color-text)' }}>{selectedDelivery.remarks}</span>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs text-gray-500 pt-2 border-t border-gray-100">
-              <div>
-                <span>Dispatched: </span>
-                <span className="font-medium text-gray-800">
-                  {selectedDelivery.dispatchedAt ? new Date(selectedDelivery.dispatchedAt).toLocaleString('en-IN') : 'Pending'}
-                </span>
-              </div>
-              <div>
-                <span>Delivered: </span>
-                <span className="font-medium text-gray-800">
-                  {selectedDelivery.deliveredAt ? new Date(selectedDelivery.deliveredAt).toLocaleString('en-IN') : 'Pending'}
-                </span>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-gray-100 flex justify-end">
+            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
               <button
+                type="button"
                 onClick={() => setDetailsModalOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary"
               >
-                Close
+                Close Audit
               </button>
             </div>
           </div>
         </Modal>
       )}
+
+      {/* Complete Delivery Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={completeConfirmOpen}
+        onClose={() => {
+          setCompleteConfirmOpen(false);
+          setDeliveryToComplete(null);
+        }}
+        onConfirm={handleConfirmCompleteDelivery}
+        title="Confirm Delivery Receipt"
+        message={
+          deliveryToComplete
+            ? `Confirm delivery receipt for Shipment #DEL-${deliveryToComplete.deliveryId}? This will mark the order as fulfilled and trigger payment settlement eligibility.`
+            : ''
+        }
+        confirmText="Mark Delivered"
+        confirmVariant="primary"
+        loading={actionLoading}
+      />
     </div>
   );
 };

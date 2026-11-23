@@ -4,38 +4,45 @@ import adminApi from '../../services/adminApi';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
+import ConfirmDialog from '../../components/ConfirmDialog';
 import {
   Users,
   Search,
-  Filter,
-  UserCheck,
-  Shield,
-  Sprout,
-  ShoppingBag,
   Eye,
   ExternalLink,
-  Phone,
   Mail,
+  Phone,
   Calendar,
-  MapPin
+  CheckCircle2,
+  XCircle,
+  ShieldAlert,
+  UserCheck,
+  Building,
+  MapPin,
+  Sprout
 } from 'lucide-react';
 
 export const AdminUsers = () => {
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
+  const [selectedRole, setSelectedRole] = useState('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Filters
-  const [selectedRole, setSelectedRole] = useState('ALL');
-  const [selectedStatus, setSelectedStatus] = useState('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Selected User Modal
+  // User detail modal state
   const [selectedUser, setSelectedUser] = useState(null);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailData, setDetailData] = useState(null);
+
+  // Status toggle confirmation
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
+  const [statusConfirmUser, setStatusConfirmUser] = useState(null);
+  const [statusError, setStatusError] = useState(null);
+  const [statusSuccess, setStatusSuccess] = useState(null);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -43,14 +50,12 @@ export const AdminUsers = () => {
     try {
       const params = {};
       if (selectedRole !== 'ALL') params.role = selectedRole;
-      if (selectedStatus !== 'ALL') params.status = selectedStatus;
-      if (searchQuery.trim()) params.search = searchQuery.trim();
+      if (searchQuery.trim()) params.query = searchQuery.trim();
 
       const res = await adminApi.getUsers(params);
-      const userList = res.data?.data || res.data || [];
-      setUsers(userList);
+      setUsers(res.data?.data || res.data || []);
     } catch (err) {
-      console.error('Failed to fetch platform users:', err);
+      console.error('Failed to load user directory:', err);
       setError(err.response?.data?.message || err.message || 'Unable to retrieve user directory.');
     } finally {
       setLoading(false);
@@ -59,7 +64,7 @@ export const AdminUsers = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, [selectedRole, selectedStatus]);
+  }, [selectedRole]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -72,11 +77,40 @@ export const AdminUsers = () => {
     setLoadingDetail(true);
     try {
       const res = await adminApi.getUserById(user.userId);
-      setSelectedUser(res.data?.data || res.data || user);
+      setDetailData(res.data?.data || res.data || null);
     } catch (err) {
-      console.error('Failed to fetch detailed profile:', err);
+      console.error('Failed to load user detail profile:', err);
     } finally {
       setLoadingDetail(false);
+    }
+  };
+
+  const handleToggleStatus = (user) => {
+    setStatusError(null);
+    setStatusConfirmUser(user);
+  };
+
+  const handleConfirmToggleStatus = async () => {
+    if (!statusConfirmUser) return;
+    const userId = statusConfirmUser.userId;
+    const nextStatus = statusConfirmUser.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
+    setStatusActionLoading(true);
+    setStatusError(null);
+    try {
+      await adminApi.updateUserStatus(userId, nextStatus);
+      if (selectedUser && selectedUser.userId === userId) {
+        setSelectedUser({ ...selectedUser, status: nextStatus });
+      }
+      setStatusConfirmUser(null);
+      setStatusSuccess(`User #${userId} status updated to ${nextStatus}.`);
+      setTimeout(() => setStatusSuccess(null), 4000);
+      await fetchUsers();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      setStatusError(err.response?.data?.message || err.message || 'Status update failed.');
+    } finally {
+      setStatusActionLoading(false);
     }
   };
 
@@ -88,38 +122,60 @@ export const AdminUsers = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">User Directory</h1>
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h1 className="page-title">
+              <Users size={26} color="var(--color-primary)" />
+              <span>User Directory</span>
+            </h1>
+            <span style={{
+              display: 'inline-block',
+              padding: '0.2rem 0.5rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              backgroundColor: 'var(--color-accent-light)',
+              color: 'var(--color-accent)',
+              border: '1px solid #7dd3fc',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
               Stakeholders
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="page-subtitle">
             Browse and inspect verified Farmers, Commercial Buyers, and System Administrators registered on AgriConnect.
           </p>
         </div>
       </div>
 
-      {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
+      {statusError && (
+        <div className="alert alert-danger" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>{statusError}</span>
+          <button type="button" onClick={() => setStatusError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>×</button>
+        </div>
+      )}
+      {statusSuccess && (
+        <div className="alert alert-success" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>{statusSuccess}</span>
+          <button type="button" onClick={() => setStatusSuccess(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>×</button>
+        </div>
+      )}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      <div className="filter-bar">
         {/* Role Tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="tab-group">
           {['ALL', 'FARMER', 'BUYER', 'ADMIN'].map((role) => (
             <button
               key={role}
               type="button"
               onClick={() => setSelectedRole(role)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                selectedRole === role
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${selectedRole === role ? 'active' : ''}`}
             >
               {role} {selectedRole === 'ALL' && role !== 'ALL' ? '' : `(${roleCounts[role] || 0})`}
             </button>
@@ -127,20 +183,22 @@ export const AdminUsers = () => {
         </div>
 
         {/* Search Input */}
-        <form onSubmit={handleSearchSubmit} className="flex items-center gap-2">
-          <div className="relative flex-1 sm:w-64">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <form onSubmit={handleSearchSubmit} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="search-wrapper">
+            <span className="search-icon">
+              <Search size={16} />
+            </span>
             <input
               type="text"
               placeholder="Search name, email, phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="search-input"
             />
           </div>
           <button
             type="submit"
-            className="px-3 py-1.5 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-semibold"
+            className="btn btn-primary btn-sm"
           >
             Filter
           </button>
@@ -148,82 +206,101 @@ export const AdminUsers = () => {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        {loading ? (
-          <div className="py-16">
-            <LoadingSpinner message="Querying platform stakeholder directory..." />
-          </div>
-        ) : users.length === 0 ? (
-          <div className="p-12 text-center text-sm text-gray-500">
-            No users match the specified criteria.
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">User ID</th>
-                  <th className="py-3 px-4">Full Name</th>
-                  <th className="py-3 px-4">Email</th>
-                  <th className="py-3 px-4">Phone</th>
-                  <th className="py-3 px-4">Role</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4">Joined Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {users.map((u) => {
-                  const roleBadgeColor =
-                    u.role === 'ADMIN'
-                      ? 'bg-purple-100 text-purple-800 border-purple-200'
-                      : u.role === 'FARMER'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                      : 'bg-blue-100 text-blue-800 border-blue-200';
+      {loading ? (
+        <LoadingSpinner message="Querying platform stakeholder directory..." />
+      ) : users.length === 0 ? (
+        <EmptyState
+          icon={Users}
+          title="No users found"
+          description="No registered stakeholders match your filter criteria."
+        />
+      ) : (
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Full Name</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Role</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th>Joined Date</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((u) => {
+                const roleColor =
+                  u.role === 'ADMIN'
+                    ? { bg: '#f3e8ff', text: '#7c3aed', border: '#ddd6fe' }
+                    : u.role === 'FARMER'
+                    ? { bg: 'var(--color-primary-light)', text: 'var(--color-primary)', border: 'var(--color-primary-border)' }
+                    : { bg: 'var(--color-accent-light)', text: 'var(--color-accent)', border: '#7dd3fc' };
 
-                  return (
-                    <tr key={u.userId} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-gray-500">#{u.userId}</td>
-                      <td className="py-3 px-4 font-semibold text-gray-900">{u.fullName}</td>
-                      <td className="py-3 px-4 text-gray-600 font-mono">{u.email}</td>
-                      <td className="py-3 px-4 text-gray-500 font-mono">{u.phone || '—'}</td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-bold border ${roleBadgeColor}`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={u.status} />
-                      </td>
-                      <td className="py-3 px-4 text-gray-500">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}
-                      </td>
-                      <td className="py-3 px-4 text-right space-x-2">
+                return (
+                  <tr key={u.userId}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--color-text-muted)' }}>
+                      #{u.userId}
+                    </td>
+                    <td style={{ fontWeight: 700, color: 'var(--color-text)' }}>
+                      {u.fullName}
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                      {u.email}
+                    </td>
+                    <td style={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                      {u.phone || '—'}
+                    </td>
+                    <td>
+                      <span style={{
+                        display: 'inline-block',
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        backgroundColor: roleColor.bg,
+                        color: roleColor.text,
+                        border: `1px solid ${roleColor.border}`
+                      }}>
+                        {u.role}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <StatusBadge status={u.status} />
+                    </td>
+                    <td style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                      {u.createdAt ? new Date(u.createdAt).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
                         <button
                           type="button"
                           onClick={() => handleOpenDetail(u)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.3rem 0.65rem' }}
                         >
-                          <Eye size={12} />
+                          <Eye size={13} />
                           <span>View Profile</span>
                         </button>
                         <button
                           type="button"
                           onClick={() => navigate(`/admin/users/${u.userId}`)}
-                          className="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-400 hover:text-gray-700 rounded-md"
+                          className="btn btn-secondary btn-sm"
+                          style={{ padding: '0.3rem 0.5rem' }}
                           title="Open dedicated page"
                         >
-                          <ExternalLink size={12} />
+                          <ExternalLink size={13} />
                         </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* User Detail Modal */}
       {detailModalOpen && selectedUser && (
@@ -231,91 +308,97 @@ export const AdminUsers = () => {
           isOpen={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
           title={`User Profile — ${selectedUser.fullName}`}
-          maxWidth="max-w-xl"
+          maxWidth="560px"
         >
-          <div className="space-y-4 text-sm">
+          <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', fontSize: '0.875rem' }}>
             {loadingDetail ? (
               <LoadingSpinner message="Loading user details..." />
             ) : (
               <>
                 {/* Core User Meta */}
-                <div className="p-4 bg-gray-50 rounded-xl space-y-2 border border-gray-100">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono text-gray-400">User ID #{selectedUser.userId}</span>
-                    <span className="px-2 py-0.5 rounded text-xs font-bold uppercase bg-emerald-100 text-emerald-800">
+                <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--color-text-muted)' }}>
+                      User ID #{selectedUser.userId}
+                    </span>
+                    <span style={{
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.72rem',
+                      fontWeight: 800,
+                      backgroundColor: 'var(--color-primary-light)',
+                      color: 'var(--color-primary)'
+                    }}>
                       {selectedUser.role}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900">{selectedUser.fullName}</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-gray-600 pt-1">
-                    <div className="flex items-center gap-1.5">
-                      <Mail size={14} className="text-gray-400" />
+                  <h3 style={{ fontSize: '1.15rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                    {selectedUser.fullName}
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-secondary)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Mail size={14} color="var(--color-text-muted)" />
                       <span>{selectedUser.email}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Phone size={14} className="text-gray-400" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Phone size={14} color="var(--color-text-muted)" />
                       <span>{selectedUser.phone || 'No phone recorded'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <UserCheck size={14} className="text-gray-400" />
-                      <span>Account Status: <strong>{selectedUser.status}</strong></span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <Calendar size={14} color="var(--color-text-muted)" />
+                      <span>Joined: {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-IN') : 'N/A'}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <Calendar size={14} className="text-gray-400" />
-                      <span>
-                        Joined:{' '}
-                        <strong>
-                          {selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString('en-IN') : 'N/A'}
-                        </strong>
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <StatusBadge status={selectedUser.status} />
                     </div>
                   </div>
                 </div>
 
-                {/* Farmer Profile Specialization */}
-                {selectedUser.farmerProfile && (
-                  <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-100 space-y-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-800 flex items-center gap-1.5">
-                      <Sprout size={16} />
-                      Farmer Profile Specialization
+                {/* Role Profile Specifics */}
+                {detailData?.farmerProfile && (
+                  <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                    <h4 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                      🌾 Farmer Operational Profile
                     </h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-                      <div>Farm Location: <strong>{selectedUser.farmerProfile.farmLocation || 'N/A'}</strong></div>
-                      <div>Farm Size: <strong>{selectedUser.farmerProfile.farmSizeAcres ?? 'N/A'} Acres</strong></div>
-                      <div>Experience: <strong>{selectedUser.farmerProfile.experienceYears ?? 'N/A'} Years</strong></div>
-                      <div>Farmer ID Ref: <strong>#{selectedUser.farmerProfile.farmerId}</strong></div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem' }}>
+                      <div>Location: <strong>{detailData.farmerProfile.farmLocation || 'Unspecified'}</strong></div>
+                      <div>Farm Size: <strong>{detailData.farmerProfile.farmSizeAcres || '0'} Acres</strong></div>
+                      <div>Experience: <strong>{detailData.farmerProfile.experienceYears || '0'} Years</strong></div>
                     </div>
                   </div>
                 )}
 
-                {/* Buyer Profile Specialization */}
-                {selectedUser.buyerProfile && (
-                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-100 space-y-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-blue-800 flex items-center gap-1.5">
-                      <ShoppingBag size={16} />
-                      Commercial Buyer Profile Specialization
+                {detailData?.buyerProfile && (
+                  <div style={{ padding: '1rem', backgroundColor: 'var(--color-bg)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                    <h4 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                      🏢 Commercial Buyer Profile
                     </h4>
-                    <div className="grid grid-cols-2 gap-2 text-xs text-gray-700">
-                      <div>Company Name: <strong>{selectedUser.buyerProfile.businessName || 'N/A'}</strong></div>
-                      <div>Business Type: <strong>{selectedUser.buyerProfile.businessType || 'N/A'}</strong></div>
-                      <div>GSTIN: <strong className="font-mono">{selectedUser.buyerProfile.gstNumber || 'N/A'}</strong></div>
-                      <div>Business Address: <strong>{selectedUser.buyerProfile.businessAddress || 'N/A'}</strong></div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem' }}>
+                      <div>Business: <strong>{detailData.buyerProfile.businessName || 'Not specified'}</strong></div>
+                      <div>Type: <strong>{detailData.buyerProfile.businessType ? detailData.buyerProfile.businessType.replace('_', ' ') : 'Not specified'}</strong></div>
+                      <div>GSTIN: <strong style={{ fontFamily: 'monospace' }}>{detailData.buyerProfile.gstin || detailData.buyerProfile.gstNumber || 'Not provided'}</strong></div>
+                      <div>Address: <strong>{detailData.buyerProfile.businessAddress || 'Not specified'}</strong></div>
                     </div>
                   </div>
                 )}
 
-                {/* Dedicated Page Link */}
-                <div className="pt-2 flex justify-end">
+                {/* Status Toggle & Modal Footer */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
                   <button
                     type="button"
-                    onClick={() => {
-                      setDetailModalOpen(false);
-                      navigate(`/admin/users/${selectedUser.userId}`);
-                    }}
-                    className="inline-flex items-center gap-1 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs font-bold uppercase tracking-wider shadow-sm transition-colors"
+                    onClick={() => handleToggleStatus(selectedUser)}
+                    disabled={statusActionLoading}
+                    className={`btn btn-sm ${selectedUser.status === 'ACTIVE' ? 'btn-danger' : 'btn-primary'}`}
                   >
-                    <span>Open Dedicated Inspector</span>
-                    <ExternalLink size={14} />
+                    {selectedUser.status === 'ACTIVE' ? 'Deactivate Stakeholder' : 'Activate Stakeholder'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDetailModalOpen(false)}
+                    className="btn btn-secondary btn-sm"
+                  >
+                    Close
                   </button>
                 </div>
               </>
@@ -323,6 +406,24 @@ export const AdminUsers = () => {
           </div>
         </Modal>
       )}
+
+      {/* Confirmation Dialog for Status Change */}
+      <ConfirmDialog
+        isOpen={!!statusConfirmUser}
+        onClose={() => setStatusConfirmUser(null)}
+        onConfirm={handleConfirmToggleStatus}
+        title="Confirm Status Change"
+        message={
+          statusConfirmUser
+            ? `Are you sure you want to change status of ${statusConfirmUser.fullName} (ID #${statusConfirmUser.userId}) to ${
+                statusConfirmUser.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+              }?`
+            : ''
+        }
+        confirmLabel={statusConfirmUser?.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+        isDanger={statusConfirmUser?.status === 'ACTIVE'}
+        isLoading={statusActionLoading}
+      />
     </div>
   );
 };

@@ -6,6 +6,14 @@ import Modal from '../../components/Modal';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import {
+  CreditCard,
+  Clock,
+  FileText,
+  CheckCircle2,
+  RefreshCw,
+  Search
+} from 'lucide-react';
 
 export const FarmerPayments = () => {
   const [payments, setPayments] = useState([]);
@@ -49,7 +57,7 @@ export const FarmerPayments = () => {
       setSelectedOrderSummary(summary);
     } catch (err) {
       console.error('Error loading order payment summary:', err);
-      alert(err.response?.data?.message || 'Failed to load order payment ledger summary.');
+      setError(err.response?.data?.message || 'Failed to load order payment ledger summary.');
       setSummaryModalOpen(false);
     } finally {
       setSummaryLoading(false);
@@ -90,87 +98,88 @@ export const FarmerPayments = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Payment Settlements & Receipts</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Audit buyer disbursements, digital escrow settlements, and verified commercial transaction credits.
+          <h1 className="page-title">
+            <CreditCard size={26} color="var(--color-primary)" />
+            <span>Payment Ledger & Receipts</span>
+          </h1>
+          <p className="page-subtitle">
+            Track received and pending payments, payment methods, and transaction references for your orders.
           </p>
         </div>
 
         <button
+          type="button"
           onClick={loadPayments}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 shadow-sm"
+          className="btn btn-secondary"
         >
-          <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          Refresh Ledger
+          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+          <span>Refresh Ledger</span>
         </button>
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid-cards">
         <DashboardCard
-          title="Total Settled Revenue"
+          title="Total Received Revenue"
           value={`₹${totalReceived.toLocaleString('en-IN')}`}
-          subtitle={`${completedReceipts} completed credits`}
-          icon="currency-rupee"
-          color="emerald"
+          description={`${completedReceipts} completed credits`}
+          icon={CreditCard}
+          variant="success"
         />
         <DashboardCard
-          title="Pending Settlement"
+          title="Pending Payments"
           value={`₹${pendingSettlement.toLocaleString('en-IN')}`}
-          subtitle="Processing disbursements"
-          icon="clock"
-          color={pendingSettlement > 0 ? "amber" : "gray"}
+          description="Processing order payments"
+          icon={Clock}
+          variant="secondary"
+          trend={pendingSettlement > 0 ? `+${pendingSettlement}` : null}
+          trendLabel={pendingSettlement > 0 ? 'Pending' : null}
         />
         <DashboardCard
           title="Total Transactions"
           value={totalReceipts}
-          subtitle="All recorded disbursements"
-          icon="document-text"
-          color="blue"
+          description="All recorded payments"
+          icon={FileText}
+          variant="accent"
         />
         <DashboardCard
-          title="Settlement Rate"
+          title="Payment Completion Rate"
           value={totalReceipts > 0 ? `${((completedReceipts / totalReceipts) * 100).toFixed(0)}%` : '100%'}
-          subtitle="Successful commercial completion"
-          icon="check-circle"
-          color="emerald"
+          description="Successful payment completion"
+          icon={CheckCircle2}
+          variant="primary"
         />
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="filter-bar">
+        <div className="tab-group">
           {['ALL', 'COMPLETED', 'PENDING', 'FAILED', 'REFUNDED'].map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === tab
-                  ? 'bg-emerald-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === tab ? 'active' : ''}`}
             >
               {tab}
             </button>
           ))}
         </div>
 
-        <div className="relative min-w-[240px]">
+        <div className="search-wrapper">
+          <span className="search-icon">
+            <Search size={16} />
+          </span>
           <input
             type="text"
             placeholder="Search ref #, order, buyer..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            className="search-input"
           />
-          <svg className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
         </div>
       </div>
 
@@ -189,81 +198,79 @@ export const FarmerPayments = () => {
           }
         />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
-              <thead className="bg-gray-50 text-gray-700 font-semibold text-xs uppercase tracking-wider">
-                <tr>
-                  <th className="px-4 py-3.5 text-left">Receipt & Date</th>
-                  <th className="px-4 py-3.5 text-left">Order & Produce</th>
-                  <th className="px-4 py-3.5 text-left">Buyer</th>
-                  <th className="px-4 py-3.5 text-left">Method & Reference</th>
-                  <th className="px-4 py-3.5 text-right">Settled Amount</th>
-                  <th className="px-4 py-3.5 text-center">Status</th>
-                  <th className="px-4 py-3.5 text-right">Ledger Audit</th>
+        <div className="table-wrapper">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Receipt & Date</th>
+                <th>Order & Produce</th>
+                <th>Buyer</th>
+                <th>Method & Reference</th>
+                <th style={{ textAlign: 'right' }}>Settled Amount</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
+                <th style={{ textAlign: 'right' }}>Ledger Audit</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredPayments.map((pay) => (
+                <tr key={pay.paymentId}>
+                  <td>
+                    <div className="font-semibold text-gray-900">#PAY-{pay.paymentId}</div>
+                    <div className="text-xs text-gray-500">
+                      {pay.paymentDate
+                        ? new Date(pay.paymentDate).toLocaleDateString('en-IN', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })
+                        : 'Recorded'}
+                    </div>
+                  </td>
+
+                  <td>
+                    <div className="font-medium text-gray-900">#ORD-{pay.orderId}</div>
+                    <div className="text-xs text-gray-500">{pay.cropName || 'Produce'}</div>
+                  </td>
+
+                  <td>
+                    <div className="font-medium text-gray-900">{pay.buyerName || 'Buyer'}</div>
+                    <div className="text-xs text-gray-500">{pay.businessName || 'Wholesale Buyer'}</div>
+                  </td>
+
+                  <td>
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700">
+                      {pay.paymentMethod ? pay.paymentMethod.replace('_', ' ') : 'DIRECT'}
+                    </span>
+                    <div className="font-mono text-xs text-gray-500 mt-0.5 truncate max-w-[140px]" title={pay.transactionReference}>
+                      {pay.transactionReference || 'REF-N/A'}
+                    </div>
+                  </td>
+
+                  <td style={{ textAlign: 'right' }}>
+                    <div className="text-base font-bold text-emerald-600">
+                      ₹{Number(pay.amount).toLocaleString('en-IN')}
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Order total: ₹{Number(pay.orderTotalAmount || pay.amount).toLocaleString('en-IN')}
+                    </div>
+                  </td>
+
+                  <td style={{ textAlign: 'center' }}>
+                    <StatusBadge status={pay.paymentStatus} />
+                  </td>
+
+                  <td style={{ textAlign: 'right' }}>
+                    <button
+                      onClick={() => handleOpenOrderSummary(pay.orderId)}
+                      className="btn btn-secondary btn-sm"
+                    >
+                      Order Balance
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {filteredPayments.map((pay) => (
-                  <tr key={pay.paymentId} className="hover:bg-gray-50/70 transition-colors">
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-semibold text-gray-900">#PAY-{pay.paymentId}</div>
-                      <div className="text-xs text-gray-500">
-                        {pay.paymentDate
-                          ? new Date(pay.paymentDate).toLocaleDateString('en-IN', {
-                              day: 'numeric',
-                              month: 'short',
-                              year: 'numeric'
-                            })
-                          : 'Recorded'}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">#ORD-{pay.orderId}</div>
-                      <div className="text-xs text-gray-500">{pay.cropName || 'Produce'}</div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{pay.buyerName || 'Buyer'}</div>
-                      <div className="text-xs text-gray-500">{pay.businessName || 'Wholesale Buyer'}</div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-gray-100 text-gray-700">
-                        {pay.paymentMethod ? pay.paymentMethod.replace('_', ' ') : 'DIRECT'}
-                      </span>
-                      <div className="font-mono text-xs text-gray-500 mt-0.5 truncate max-w-[140px]" title={pay.transactionReference}>
-                        {pay.transactionReference || 'REF-N/A'}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      <div className="text-base font-bold text-emerald-600">
-                        ₹{Number(pay.amount).toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Order total: ₹{Number(pay.orderTotalAmount || pay.amount).toLocaleString('en-IN')}
-                      </div>
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-center">
-                      <StatusBadge status={pay.paymentStatus} />
-                    </td>
-
-                    <td className="px-4 py-3.5 whitespace-nowrap text-right">
-                      <button
-                        onClick={() => handleOpenOrderSummary(pay.orderId)}
-                        className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
-                      >
-                        Order Balance
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -301,9 +308,9 @@ export const FarmerPayments = () => {
               </div>
 
               <div className="flex items-center justify-between text-xs text-gray-600 border-b border-gray-100 pb-2">
-                <span>Payment Settlement Status:</span>
+                <span>Payment Status:</span>
                 <span className={`font-semibold ${selectedOrderSummary.isFullyPaid ? 'text-emerald-600' : 'text-amber-600'}`}>
-                  {selectedOrderSummary.isFullyPaid ? 'Fully Settled' : 'Partial / Balance Due'}
+                  {selectedOrderSummary.isFullyPaid ? 'Fully Paid' : 'Partial / Balance Due'}
                 </span>
               </div>
 

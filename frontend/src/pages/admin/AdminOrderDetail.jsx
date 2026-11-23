@@ -247,13 +247,13 @@ export const AdminOrderDetail = () => {
             </div>
           </div>
 
-          {/* Settlement / Payment Summary */}
+          {/* Payment Summary */}
           {paymentSummary && (
             <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-xs font-bold uppercase tracking-wider text-teal-700 flex items-center gap-1.5">
                   <CreditCard size={16} />
-                  Financial Settlement Audit
+                  Payment & Transaction Audit
                 </div>
                 <span className="text-xs font-mono text-gray-400">Linked to Order #{order.orderId}</span>
               </div>
@@ -263,7 +263,7 @@ export const AdminOrderDetail = () => {
                   <div className="text-sm font-bold text-gray-900 mt-0.5">₹{Number(paymentSummary.totalAmount || 0).toLocaleString()}</div>
                 </div>
                 <div className="p-3 bg-emerald-50 rounded-lg text-emerald-800">
-                  <div className="font-bold uppercase text-[10px]">Settled Amount</div>
+                  <div className="font-bold uppercase text-[10px]">Total Paid</div>
                   <div className="text-sm font-black mt-0.5">₹{Number(paymentSummary.paidAmount || 0).toLocaleString()}</div>
                 </div>
                 <div className="p-3 bg-amber-50 rounded-lg text-amber-800">

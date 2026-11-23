@@ -6,6 +6,7 @@ import Modal from '../../components/Modal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import SelectField from '../../components/SelectField';
 
 export const RequirementDetail = () => {
   const { id } = useParams();
@@ -32,6 +33,8 @@ export const RequirementDetail = () => {
   // Cancel Dialog
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [editError, setEditError] = useState(null);
+  const [cancelError, setCancelError] = useState(null);
 
   useEffect(() => {
     loadRequirement();
@@ -98,10 +101,11 @@ export const RequirementDetail = () => {
       const res = await buyerApi.updateRequirement(id, payload);
       setRequirement(res.data?.data || res.data);
       setEditModalOpen(false);
+      setEditError(null);
       loadRequirement();
     } catch (err) {
       console.error('Failed to update requirement:', err);
-      alert(err.response?.data?.message || 'Failed to update requirement.');
+      setEditError(err.response?.data?.message || 'Failed to update requirement.');
     } finally {
       setSubmitting(false);
     }
@@ -110,12 +114,13 @@ export const RequirementDetail = () => {
   const handleConfirmCancel = async () => {
     try {
       setCancelling(true);
+      setCancelError(null);
       await buyerApi.cancelRequirement(id);
       setCancelDialogOpen(false);
       loadRequirement();
     } catch (err) {
       console.error('Failed to cancel requirement:', err);
-      alert(err.response?.data?.message || 'Failed to cancel requirement.');
+      setCancelError(err.response?.data?.message || 'Failed to cancel requirement.');
     } finally {
       setCancelling(false);
     }
@@ -159,14 +164,16 @@ export const RequirementDetail = () => {
           {isOpen && (
             <>
               <button
+                type="button"
                 onClick={() => setEditModalOpen(true)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                className="btn btn-secondary btn-sm"
               >
                 Edit Parameters
               </button>
               <button
+                type="button"
                 onClick={() => setCancelDialogOpen(true)}
-                className="px-3 py-1.5 border border-red-200 text-red-600 rounded-lg text-xs font-semibold hover:bg-red-50"
+                className="btn btn-danger btn-sm"
               >
                 Cancel Requirement
               </button>
@@ -272,21 +279,21 @@ export const RequirementDetail = () => {
           maxWidth="max-w-lg"
         >
           <form onSubmit={handleUpdateSubmit} className="space-y-4 text-sm">
-            <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Crop Commodity</label>
-              <select
-                value={editForm.cropId}
-                onChange={(e) => setEditForm({ ...editForm, cropId: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500"
-              >
-                {crops.map((c) => (
-                  <option key={c.cropId} value={c.cropId}>
-                    {c.cropName} ({c.category})
-                  </option>
-                ))}
-              </select>
-            </div>
+            {editError && (
+              <div style={{ padding: '0.6rem 0.85rem', backgroundColor: '#fee2e2', color: '#991b1b', borderRadius: '0.375rem', fontSize: '0.8rem' }}>
+                {editError}
+              </div>
+            )}
+            <SelectField
+              label="Crop Commodity"
+              value={editForm.cropId}
+              onChange={(e) => setEditForm({ ...editForm, cropId: e.target.value })}
+              required
+              options={crops.map((c) => ({
+                value: c.cropId,
+                label: `${c.cropName} (${c.category})`
+              }))}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -315,18 +322,16 @@ export const RequirementDetail = () => {
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Min Grade</label>
-                <select
-                  value={editForm.minQualityGrade}
-                  onChange={(e) => setEditForm({ ...editForm, minQualityGrade: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                >
-                  <option value="A">Grade A</option>
-                  <option value="B">Grade B</option>
-                  <option value="C">Grade C</option>
-                </select>
-              </div>
+              <SelectField
+                label="Min Grade"
+                value={editForm.minQualityGrade}
+                onChange={(e) => setEditForm({ ...editForm, minQualityGrade: e.target.value })}
+                options={[
+                  { value: 'A', label: 'Grade A' },
+                  { value: 'B', label: 'Grade B' },
+                  { value: 'C', label: 'Grade C' },
+                ]}
+              />
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Required By Date</label>

@@ -204,7 +204,7 @@ export const AdminPriceHistory = () => {
       </div>
 
       {/* Historical Price Points Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="table-wrapper">
         <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row gap-3 justify-between items-stretch md:items-center">
           <div className="flex items-center gap-2">
             <Calendar size={16} className="text-gray-600" />
@@ -213,14 +213,14 @@ export const AdminPriceHistory = () => {
             </h2>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3">
             {/* Source Type Filter */}
             <div className="flex items-center gap-1.5 text-xs text-gray-500">
               <label className="font-semibold uppercase">Source:</label>
               <select
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value)}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:outline-none"
               >
                 <option value="ALL">All Price Sources</option>
                 <option value="MARKET_MANDI">Official APMC Mandi</option>
@@ -229,14 +229,14 @@ export const AdminPriceHistory = () => {
             </div>
 
             {/* Search */}
-            <div className="relative">
-              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <div className="search-wrapper">
+              <Search size={16} className="search-icon" />
               <input
                 type="text"
                 placeholder="Search crop, mandi location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none w-48 sm:w-60"
+                className="search-input"
               />
             </div>
           </div>
@@ -251,62 +251,60 @@ export const AdminPriceHistory = () => {
             No price records found matching the filter criteria.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Price ID</th>
-                  <th className="py-3 px-4">Commodity</th>
-                  <th className="py-3 px-4">Data Source Type</th>
-                  <th className="py-3 px-4">Effective Price</th>
-                  <th className="py-3 px-4">Mandi Range (Min - Max)</th>
-                  <th className="py-3 px-4">Market Location</th>
-                  <th className="py-3 px-4">Recorded Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredRecords.map((r) => {
-                  const isMandi = r.sourceType === 'MARKET_MANDI';
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Price ID</th>
+                <th>Commodity</th>
+                <th>Data Source Type</th>
+                <th>Effective Price</th>
+                <th>Mandi Range (Min - Max)</th>
+                <th>Market Location</th>
+                <th>Recorded Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.map((r) => {
+                const isMandi = r.sourceType === 'MARKET_MANDI';
 
-                  return (
-                    <tr key={r.priceId} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-gray-500">#PRC-{r.priceId}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-gray-900">{r.cropName}</div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">{r.cropCategory}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
-                            isMandi
-                              ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                              : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                          }`}
-                        >
-                          {isMandi ? 'APMC MANDI' : 'PLATFORM SALE'}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-black text-gray-900">
-                        ₹{Number(r.effectivePrice || r.modalPricePerKg || r.unitPrice || 0).toFixed(2)}
-                        <span className="text-xs font-normal text-gray-400"> / kg</span>
-                      </td>
-                      <td className="py-3 px-4 font-mono text-gray-600">
-                        {r.minPricePerKg != null && r.maxPricePerKg != null
-                          ? `₹${Number(r.minPricePerKg).toFixed(2)} — ₹${Number(r.maxPricePerKg).toFixed(2)}`
-                          : '—'}
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {r.marketLocation || 'AgriConnect Platform'}
-                      </td>
-                      <td className="py-3 px-4 text-gray-500">
-                        {r.recordedDate ? new Date(r.recordedDate).toLocaleDateString('en-IN') : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={r.priceId}>
+                    <td className="font-mono font-bold text-gray-500">#PRC-{r.priceId}</td>
+                    <td>
+                      <div className="font-bold text-gray-900">{r.cropName}</div>
+                      <span className="text-[10px] text-gray-400 uppercase font-semibold">{r.cropCategory}</span>
+                    </td>
+                    <td>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold ${
+                          isMandi
+                            ? 'bg-rose-100 text-rose-800 border border-rose-200'
+                            : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                        }`}
+                      >
+                        {isMandi ? 'APMC MANDI' : 'PLATFORM SALE'}
+                      </span>
+                    </td>
+                    <td className="font-black text-gray-900">
+                      ₹{Number(r.effectivePrice || r.modalPricePerKg || r.unitPrice || 0).toFixed(2)}
+                      <span className="text-xs font-normal text-gray-400"> / kg</span>
+                    </td>
+                    <td className="font-mono text-gray-600">
+                      {r.minPricePerKg != null && r.maxPricePerKg != null
+                        ? `₹${Number(r.minPricePerKg).toFixed(2)} — ₹${Number(r.maxPricePerKg).toFixed(2)}`
+                        : '—'}
+                    </td>
+                    <td className="text-gray-600">
+                      {r.marketLocation || 'AgriConnect Platform'}
+                    </td>
+                    <td className="text-gray-500">
+                      {r.recordedDate ? new Date(r.recordedDate).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

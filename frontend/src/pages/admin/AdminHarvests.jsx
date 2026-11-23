@@ -86,13 +86,13 @@ export const AdminHarvests = () => {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">Harvest Lots Management</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Harvest Lots & Quality Status</h1>
             <span className="px-2 py-0.5 rounded text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-              Inventory
+              Quality Index
             </span>
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            Audit agricultural production lots listed across all registered farmers, stock levels, and inspection status.
+            Audit registered harvest lots, available stock levels, and quality assessment certification status across the marketplace.
           </p>
         </div>
 
@@ -108,19 +108,15 @@ export const AdminHarvests = () => {
       {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
 
       {/* Filter and Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-stretch md:items-center">
+      <div className="filter-bar">
         {/* Status Filter Tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="tab-group">
           {['ALL', 'AVAILABLE', 'PARTIALLY_SOLD', 'SOLD_OUT'].map((status) => (
             <button
               key={status}
               type="button"
               onClick={() => setStatusFilter(status)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-colors ${
-                statusFilter === status
-                  ? 'bg-amber-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+              className={`tab-btn ${statusFilter === status ? 'active' : ''}`}
             >
               {status.replace('_', ' ')} ({counts[status] || 0})
             </button>
@@ -128,13 +124,13 @@ export const AdminHarvests = () => {
         </div>
 
         {/* Quality Filter & Search */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5 text-xs text-gray-500">
             <label className="font-semibold uppercase">Quality:</label>
             <select
               value={qualityFilter}
               onChange={(e) => setQualityFilter(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+              className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:outline-none"
             >
               <option value="ALL">All Quality States</option>
               <option value="VERIFIED">Verified Lots</option>
@@ -144,21 +140,21 @@ export const AdminHarvests = () => {
             </select>
           </div>
 
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="search-wrapper">
+            <Search size={16} className="search-icon" />
             <input
               type="text"
               placeholder="Search crop, farmer, loc..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none w-48 sm:w-60"
+              className="search-input"
             />
           </div>
         </div>
       </div>
 
       {/* Harvests Table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="table-wrapper">
         {loading ? (
           <div className="py-16">
             <LoadingSpinner message="Querying marketplace harvest inventory..." />
@@ -168,91 +164,89 @@ export const AdminHarvests = () => {
             No harvest lots match the selected filters.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-4">Lot ID</th>
-                  <th className="py-3 px-4">Crop Commodity</th>
-                  <th className="py-3 px-4">Producer / Farmer</th>
-                  <th className="py-3 px-4">Farm Location</th>
-                  <th className="py-3 px-4">Stock (Avail / Init)</th>
-                  <th className="py-3 px-4">Price / kg</th>
-                  <th className="py-3 px-4">Harvest Date</th>
-                  <th className="py-3 px-4">Market Status</th>
-                  <th className="py-3 px-4">Quality Grade</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredHarvests.map((h) => {
-                  const qualityBadgeColor =
-                    h.assessmentStatus === 'VERIFIED'
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                      : h.assessmentStatus === 'PENDING'
-                      ? 'bg-amber-100 text-amber-800 border-amber-200'
-                      : h.assessmentStatus === 'REJECTED'
-                      ? 'bg-rose-100 text-rose-800 border-rose-200'
-                      : 'bg-gray-100 text-gray-600 border-gray-200';
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Lot ID</th>
+                <th>Crop Commodity</th>
+                <th>Producer / Farmer</th>
+                <th>Farm Location</th>
+                <th>Stock (Avail / Init)</th>
+                <th>Price / kg</th>
+                <th>Harvest Date</th>
+                <th>Market Status</th>
+                <th>Quality Grade</th>
+                <th className="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredHarvests.map((h) => {
+                const qualityBadgeColor =
+                  h.assessmentStatus === 'VERIFIED'
+                    ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                    : h.assessmentStatus === 'PENDING'
+                    ? 'bg-amber-100 text-amber-800 border-amber-200'
+                    : h.assessmentStatus === 'REJECTED'
+                    ? 'bg-rose-100 text-rose-800 border-rose-200'
+                    : 'bg-gray-100 text-gray-600 border-gray-200';
 
-                  return (
-                    <tr key={h.harvestId} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-bold text-gray-500">#HAR-{h.harvestId}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-gray-900">{h.cropName}</div>
-                        <span className="text-[10px] text-gray-400 uppercase font-semibold">{h.cropCategory}</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-semibold text-gray-900">{h.farmerName}</div>
-                        <div className="text-[10px] text-gray-400 font-mono">{h.farmerPhone || 'UID #' + h.farmerId}</div>
-                      </td>
-                      <td className="py-3 px-4 text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <MapPin size={12} className="text-gray-400" />
-                          <span>{h.location}</span>
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-gray-900">{Number(h.availableQuantity).toLocaleString()} kg</div>
-                        <div className="text-[10px] text-gray-400">Total: {Number(h.initialQuantity).toLocaleString()} kg</div>
-                      </td>
-                      <td className="py-3 px-4 font-bold text-emerald-700">
-                        ₹{Number(h.pricePerKg).toFixed(2)}
-                      </td>
-                      <td className="py-3 px-4 text-gray-500">
-                        {h.harvestDate ? new Date(h.harvestDate).toLocaleDateString('en-IN') : '—'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <StatusBadge status={h.harvestStatus} />
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="space-y-1">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${qualityBadgeColor}`}>
-                            {h.assessmentStatus}
-                          </span>
-                          {h.qualityGrade && (
-                            <div className="text-[11px] font-bold text-gray-700">
-                              Grade {h.qualityGrade} ({h.qualityScore ? `${Number(h.qualityScore).toFixed(1)} pts` : ''})
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          type="button"
-                          onClick={() => navigate('/admin/quality')}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md transition-colors"
-                        >
-                          <ShieldCheck size={12} />
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                return (
+                  <tr key={h.harvestId}>
+                    <td className="font-mono font-bold text-gray-500">#HAR-{h.harvestId}</td>
+                    <td>
+                      <div className="font-bold text-gray-900">{h.cropName}</div>
+                      <span className="text-[10px] text-gray-400 uppercase font-semibold">{h.cropCategory}</span>
+                    </td>
+                    <td>
+                      <div className="font-semibold text-gray-900">{h.farmerName}</div>
+                      <div className="text-[10px] text-gray-400 font-mono">{h.farmerPhone || 'UID #' + h.farmerId}</div>
+                    </td>
+                    <td className="text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <MapPin size={12} className="text-gray-400" />
+                        <span>{h.location}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="font-bold text-gray-900">{Number(h.availableQuantity).toLocaleString()} kg</div>
+                      <div className="text-[10px] text-gray-400">Total: {Number(h.initialQuantity).toLocaleString()} kg</div>
+                    </td>
+                    <td className="font-bold text-emerald-700">
+                      ₹{Number(h.pricePerKg).toFixed(2)}
+                    </td>
+                    <td className="text-gray-500">
+                      {h.harvestDate ? new Date(h.harvestDate).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                    <td>
+                      <StatusBadge status={h.harvestStatus} />
+                    </td>
+                    <td>
+                      <div className="space-y-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold border ${qualityBadgeColor}`}>
+                          {h.assessmentStatus}
+                        </span>
+                        {h.qualityGrade && (
+                          <div className="text-[11px] font-bold text-gray-700">
+                            Grade {h.qualityGrade} ({h.qualityScore ? `${Number(h.qualityScore).toFixed(1)} pts` : ''})
+                          </div>
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        onClick={() => navigate('/admin/quality')}
+                        className="btn btn-secondary btn-sm"
+                      >
+                        <ShieldCheck size={12} />
+                        <span>Inspect</span>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>

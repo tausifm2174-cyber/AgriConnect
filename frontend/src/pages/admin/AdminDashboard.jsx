@@ -16,7 +16,6 @@ import {
   TrendingUp,
   Activity,
   RefreshCw,
-  ArrowUpRight,
   ClipboardList,
   FileText
 } from 'lucide-react';
@@ -60,18 +59,32 @@ export const AdminDashboard = () => {
   const priceHistoryStats = data?.priceHistoryStats || {};
 
   return (
-    <div className="space-y-6">
+    <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="page-header">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-gray-900">Admin Command Center</h1>
-            <span className="px-2 py-0.5 rounded text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h1 className="page-title">
+              <LayoutDashboard size={26} color="var(--color-primary)" />
+              <span>Admin Operations Center</span>
+            </h1>
+            <span style={{
+              display: 'inline-block',
+              padding: '0.2rem 0.5rem',
+              borderRadius: 'var(--radius-sm)',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              backgroundColor: '#f3e8ff',
+              color: '#7c3aed',
+              border: '1px solid #ddd6fe',
+              textTransform: 'uppercase',
+              letterSpacing: '0.04em'
+            }}>
               Operations
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-1">
-            Real-time platform oversight: stakeholders, quality audits, marketplace volume, freight tracking, and settlement telemetry.
+          <p className="page-subtitle">
+            Real-time platform oversight: stakeholders, quality audits, marketplace volume, freight tracking, and payment transactions.
           </p>
         </div>
 
@@ -79,17 +92,89 @@ export const AdminDashboard = () => {
           type="button"
           onClick={fetchDashboardData}
           disabled={loading}
-          className="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg text-xs font-semibold text-gray-700 bg-white hover:bg-gray-50 shadow-sm transition-colors"
+          className="btn btn-secondary"
         >
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           <span>Refresh Metrics</span>
         </button>
       </div>
 
-      {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+      <ErrorMessage message={error} onDismiss={() => setError(null)} />
 
-      {/* Primary KPI Cards Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Prominent Operational Attention Section */}
+      {!loading && (qualityStats.pendingAssessments > 0 || orderStats.pendingOrders > 0 || deliveryStats.inTransitDeliveries > 0) && (
+        <div style={{
+          backgroundColor: '#f8fafc',
+          border: '1px solid #cbd5e1',
+          borderRadius: 'var(--radius-lg)',
+          padding: '1.25rem',
+          marginBottom: '1.75rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: '#dc2626'
+              }}></span>
+              <h2 style={{ fontSize: '0.875rem', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Action Required — Operational Attention
+              </h2>
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Administrative action recommended</span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '0.75rem' }}>
+            {Number(qualityStats.pendingAssessments || 0) > 0 && (
+              <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: '#fff', border: '1px solid #fed7aa', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#c2410c' }}>
+                    {qualityStats.pendingAssessments} Quality Inspection{qualityStats.pendingAssessments > 1 ? 's' : ''} Pending
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#78350f' }}>Lots awaiting Grade A/B/C verification</div>
+                </div>
+                <button onClick={() => navigate('/admin/quality')} className="btn btn-sm" style={{ backgroundColor: '#ea580c', color: '#fff', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
+                  Inspect &rarr;
+                </button>
+              </div>
+            )}
+            {Number(orderStats.pendingOrders || 0) > 0 && (
+              <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: '#fff', border: '1px solid #e9d5ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#7e22ce' }}>
+                    {orderStats.pendingOrders} Order{orderStats.pendingOrders > 1 ? 's' : ''} Pending Acceptance
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#581c87' }}>Awaiting farmer harvest reservation</div>
+                </div>
+                <button onClick={() => navigate('/admin/orders')} className="btn btn-sm" style={{ backgroundColor: '#9333ea', color: '#fff', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
+                  Audit &rarr;
+                </button>
+              </div>
+            )}
+            {Number(deliveryStats.inTransitDeliveries || 0) > 0 && (
+              <div style={{ padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', backgroundColor: '#fff', border: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '0.875rem', color: '#1d4ed8' }}>
+                    {deliveryStats.inTransitDeliveries} Active Shipment{deliveryStats.inTransitDeliveries > 1 ? 's' : ''} In Transit
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#1e3a8a' }}>Vehicle shipments moving to buyer docks</div>
+                </div>
+                <button onClick={() => navigate('/admin/deliveries')} className="btn btn-sm" style={{ backgroundColor: '#2563eb', color: '#fff', fontSize: '0.75rem', padding: '0.35rem 0.65rem' }}>
+                  Track &rarr;
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Primary KPI Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Total Users"
           value={userStats.totalUsers ?? (loading ? '...' : '--')}
@@ -120,8 +205,8 @@ export const AdminDashboard = () => {
         />
       </div>
 
-      {/* Secondary Operational Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Secondary Operational Metrics Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
+      <div className="grid-cards">
         <DashboardCard
           title="Quality Inspections"
           value={qualityStats.totalAssessments ?? (loading ? '...' : '0')}
@@ -153,75 +238,111 @@ export const AdminDashboard = () => {
       </div>
 
       {/* Quick Navigation Action Grid */}
-      <div className="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">
+      <div className="card" style={{ marginBottom: '1.75rem' }}>
+        <h2 style={{
+          fontSize: '0.75rem',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          color: 'var(--color-text-muted)',
+          marginBottom: '1rem'
+        }}>
           Marketplace Operations Shortcuts
         </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-8 gap-3">
+        <div className="grid-quick-actions">
           {[
-            { label: 'Users', path: '/admin/users', icon: Users, color: 'text-blue-600 bg-blue-50 border-blue-100' },
-            { label: 'Harvests', path: '/admin/harvests', icon: Wheat, color: 'text-amber-600 bg-amber-50 border-amber-100' },
-            { label: 'Quality', path: '/admin/quality', icon: ShieldCheck, color: 'text-emerald-600 bg-emerald-50 border-emerald-100' },
-            { label: 'Orders', path: '/admin/orders', icon: ShoppingBag, color: 'text-purple-600 bg-purple-50 border-purple-100' },
-            { label: 'Deliveries', path: '/admin/deliveries', icon: Truck, color: 'text-indigo-600 bg-indigo-50 border-indigo-100' },
-            { label: 'Payments', path: '/admin/payments', icon: CreditCard, color: 'text-teal-600 bg-teal-50 border-teal-100' },
-            { label: 'Price History', path: '/admin/price-history', icon: TrendingUp, color: 'text-rose-600 bg-rose-50 border-rose-100' },
-            { label: 'DBMS Reports', path: '/admin/reports', icon: FileText, color: 'text-gray-700 bg-gray-50 border-gray-200' },
+            { label: 'Users', sub: 'Stakeholder registry', path: '/admin/users', icon: Users, color: 'var(--color-primary)', bg: 'var(--color-primary-light)' },
+            { label: 'Harvests', sub: 'Crop lot inventory', path: '/admin/harvests', icon: Wheat, color: 'var(--color-secondary)', bg: 'var(--color-secondary-light)' },
+            { label: 'Quality', sub: 'Verification audits', path: '/admin/quality', icon: ShieldCheck, color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
+            { label: 'Orders', sub: 'Purchase contracts', path: '/admin/orders', icon: ShoppingBag, color: '#7c3aed', bg: '#f3e8ff' },
+            { label: 'Deliveries', sub: 'Logistics tracking', path: '/admin/deliveries', icon: Truck, color: 'var(--color-accent)', bg: 'var(--color-accent-light)' },
+            { label: 'Payments', sub: 'Payment ledger', path: '/admin/payments', icon: CreditCard, color: '#0d9488', bg: '#ccfbf1' },
+            { label: 'Price History', sub: 'APMC benchmarks', path: '/admin/price-history', icon: TrendingUp, color: '#e11d48', bg: '#ffe4e6' },
+            { label: 'DBMS Reports', sub: 'Views & queries', path: '/admin/reports', icon: FileText, color: 'var(--color-text-secondary)', bg: 'var(--color-bg-alt)' },
           ].map((item) => {
             const Icon = item.icon;
             return (
-              <button
+              <div
                 key={item.path}
-                type="button"
                 onClick={() => navigate(item.path)}
-                className={`p-3 rounded-lg border flex flex-col items-center justify-center gap-1.5 transition-transform hover:-translate-y-0.5 text-center ${item.color}`}
+                className="action-card"
               >
-                <Icon size={20} />
-                <span className="text-xs font-bold">{item.label}</span>
-              </button>
+                <div className="action-card-icon" style={{ backgroundColor: item.bg, color: item.color }}>
+                  <Icon size={20} />
+                </div>
+                <div>
+                  <div className="action-card-title">{item.label}</div>
+                  <div className="action-card-subtitle">{item.sub}</div>
+                </div>
+              </div>
             );
           })}
         </div>
       </div>
 
       {/* Recent Activity Feed */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Activity size={18} className="text-gray-600" />
-            <h2 className="text-base font-bold text-gray-900">Recent Marketplace Activity</h2>
+      <div className="card">
+        <div className="card-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={18} color="var(--color-primary)" />
+            <h2 className="card-title">Recent Marketplace Activity</h2>
           </div>
-          <span className="text-xs font-medium text-gray-500">Live Transaction Stream</span>
+          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+            Live Transaction Stream
+          </span>
         </div>
 
         {loading ? (
-          <div className="py-12">
-            <LoadingSpinner message="Loading live operational activity stream..." />
-          </div>
+          <LoadingSpinner message="Loading live operational activity stream..." />
         ) : activities.length === 0 ? (
-          <div className="p-8 text-center text-sm text-gray-500">
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
             No recent platform activity recorded yet.
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
             {activities.map((act, index) => (
-              <div key={index} className="px-5 py-3.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 hover:bg-gray-50 transition-colors">
-                <div className="flex items-start gap-3">
-                  <div className="mt-0.5 p-1.5 rounded-md bg-gray-100 text-gray-700 font-bold text-xs uppercase">
+              <div
+                key={index}
+                style={{
+                  padding: '0.85rem 1rem',
+                  backgroundColor: 'var(--color-bg)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-md)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '0.75rem'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '0.2rem 0.5rem',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    backgroundColor: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text-secondary)'
+                  }}>
                     {act.activityType}
-                  </div>
+                  </span>
                   <div>
-                    <div className="text-sm font-medium text-gray-900">{act.description}</div>
-                    <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
-                      <span>Actor: <strong className="text-gray-700">{act.actorName}</strong></span>
-                      {act.referenceId && <span>• Ref #{act.referenceId}</span>}
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                      {act.description}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                      Actor: <strong style={{ color: 'var(--color-text)' }}>{act.actorName}</strong>
+                      {act.referenceId && <span> • Ref #{act.referenceId}</span>}
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 sm:text-right">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <StatusBadge status={act.status} />
-                  <span className="text-xs text-gray-400 whitespace-nowrap font-mono">
+                  <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontFamily: 'monospace' }}>
                     {act.timestamp ? new Date(act.timestamp).toLocaleString('en-IN') : 'N/A'}
                   </span>
                 </div>
