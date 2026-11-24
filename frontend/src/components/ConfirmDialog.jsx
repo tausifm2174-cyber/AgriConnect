@@ -16,13 +16,14 @@ export const ConfirmDialog = ({
   confirmVariant,
   isLoading = false,
   loading = false,
+  children,
 }) => {
   const finalConfirmLabel = confirmLabel || confirmText;
   const finalCancelLabel = cancelLabel || cancelText;
   const finalIsDanger = isDanger || confirmVariant === 'danger';
   const finalLoading = isLoading || loading;
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="420px">
+    <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="440px">
       <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
         <div style={{
           width: '40px',
@@ -39,9 +40,12 @@ export const ConfirmDialog = ({
         </div>
 
         <div style={{ flex: 1 }}>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-            {message}
-          </p>
+          {message && (
+            <div style={{ fontSize: '0.875rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+              {message}
+            </div>
+          )}
+          {children}
         </div>
       </div>
 

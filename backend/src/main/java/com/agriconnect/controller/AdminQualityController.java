@@ -13,9 +13,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Controller exposing Quality Management and Verification endpoints for administrators (Phase 5).
+ * Controller exposing Quality Management, Verification, Reassessment, and Audit endpoints for administrators (Phases 5 & 16C).
  * Protected by Spring Security: Accessible only by users holding the ADMIN role.
- * Identity of the assessing/verifying admin is extracted strictly from the JWT authentication token.
  */
 @RestController
 @RequestMapping("/api/admin/quality")
@@ -38,7 +37,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 1. Get harvests requiring quality assessment or filtered by status.
+     * Get harvests requiring quality assessment or filtered by status.
      * GET /api/admin/quality/pending
      */
     @GetMapping("/pending")
@@ -49,7 +48,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 2. Get harvest details for assessment (includes existing assessment if present).
+     * Get harvest details for assessment (includes existing assessment if present).
      * GET /api/admin/quality/harvests/{harvestId}
      */
     @GetMapping("/harvests/{harvestId}")
@@ -60,7 +59,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 3. Create official quality assessment.
+     * Create official quality assessment.
      * POST /api/admin/quality
      */
     @PostMapping
@@ -73,7 +72,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 4. Get quality assessment details by ID.
+     * Get quality assessment details by ID.
      * GET /api/admin/quality/{assessmentId}
      */
     @GetMapping("/{assessmentId}")
@@ -84,7 +83,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 5. Update existing quality assessment.
+     * Update existing quality assessment.
      * PUT /api/admin/quality/{assessmentId}
      */
     @PutMapping("/{assessmentId}")
@@ -97,7 +96,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 6. Formally verify a quality assessment.
+     * Formally verify a quality assessment.
      * PUT /api/admin/quality/{assessmentId}/verify
      */
     @PutMapping("/{assessmentId}/verify")
@@ -109,7 +108,7 @@ public class AdminQualityController {
     }
 
     /**
-     * 7. Reject a quality assessment.
+     * Reject a quality assessment.
      * PUT /api/admin/quality/{assessmentId}/reject
      */
     @PutMapping("/{assessmentId}/reject")
@@ -123,7 +122,65 @@ public class AdminQualityController {
     }
 
     /**
-     * Overview metrics for admin dashboard cards (Pending, Verified, Rejected).
+     * Request or initiate quality reassessment on an assessment lot.
+     * POST /api/admin/quality/{assessmentId}/request-reassessment
+     */
+    @PostMapping("/{assessmentId}/request-reassessment")
+    public ResponseEntity<ApiResponse<QualityAssessmentResponse>> requestReassessment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Integer assessmentId,
+            @Valid @RequestBody RequestReassessmentRequest request) {
+        QualityAssessmentResponse response = qualityAssessmentService.requestReassessment(userDetails.getUserId(), assessmentId, request);
+        return ResponseEntity.ok(ApiResponse.success("Quality reassessment requested and harvest flagged", response));
+    }
+
+    /**
+     * Perform physical reinspection and record administrative reassessment decision.
+     * POST /api/admin/quality/{assessmentId}/reassess
+     */
+    @PostMapping("/{assessmentId}/reassess")
+    public ResponseEntity<ApiResponse<QualityReassessmentResponse>> performReassessment(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PathVariable Integer assessmentId,
+            @Valid @RequestBody PerformReassessmentRequest request) {
+        QualityReassessmentResponse response = qualityAssessmentService.performReassessment(userDetails.getUserId(), assessmentId, request);
+        return ResponseEntity.ok(ApiResponse.success("Quality reinspection recorded successfully", response));
+    }
+
+    /**
+     * Retrieve complete chronological quality audit timeline.
+     * GET /api/admin/quality/{assessmentId}/audit-history
+     */
+    @GetMapping("/{assessmentId}/audit-history")
+    public ResponseEntity<ApiResponse<List<QualityAuditTimelineItem>>> getAuditHistory(
+            @PathVariable Integer assessmentId) {
+        List<QualityAuditTimelineItem> history = qualityAssessmentService.getAuditHistory(assessmentId);
+        return ResponseEntity.ok(ApiResponse.success("Quality audit history retrieved successfully", history));
+    }
+
+    /**
+     * Retrieve all historical reassessments across the platform.
+     * GET /api/admin/quality/reassessments
+     */
+    @GetMapping("/reassessments")
+    public ResponseEntity<ApiResponse<List<QualityReassessmentResponse>>> getAllReassessments() {
+        List<QualityReassessmentResponse> list = qualityAssessmentService.getAllReassessments();
+        return ResponseEntity.ok(ApiResponse.success("Historical quality reassessments retrieved successfully", list));
+    }
+
+    /**
+     * Retrieve all buyer quality feedback reports across the platform.
+     * GET /api/admin/quality/feedback
+     */
+    @GetMapping("/feedback")
+    public ResponseEntity<ApiResponse<List<BuyerQualityFeedbackResponse>>> getAllBuyerFeedback(
+            @RequestParam(name = "status", required = false) String status) {
+        List<BuyerQualityFeedbackResponse> list = qualityAssessmentService.getAllBuyerFeedback(status);
+        return ResponseEntity.ok(ApiResponse.success("Buyer quality feedback retrieved successfully", list));
+    }
+
+    /**
+     * Overview metrics for admin dashboard cards (Pending, Verified, Rejected, ReassessmentRequired, Feedback).
      * GET /api/admin/quality/metrics
      */
     @GetMapping("/metrics")

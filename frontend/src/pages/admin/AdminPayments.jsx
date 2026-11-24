@@ -85,7 +85,7 @@ export const AdminPayments = () => {
       fetchPayments();
     } catch (err) {
       console.error('Failed to update payment status:', err);
-      setUpdateError(err.response?.data?.message || err.message || 'Failed to update payment status.');
+      setUpdateError(err.response?.data?.message || 'Unable to update payment status. Please refresh the page and try again.');
     } finally {
       setUpdating(false);
     }
@@ -158,11 +158,11 @@ export const AdminPayments = () => {
           <div className="text-[11px] text-gray-500 mt-0.5">Recorded across all commercial orders</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm bg-emerald-50/20">
-          <div className="text-xs uppercase tracking-wider text-emerald-600 font-bold">Total Settled Volume</div>
+          <div className="text-xs uppercase tracking-wider text-emerald-600 font-bold">Total Completed Volume</div>
           <div className="text-2xl font-black text-emerald-700 mt-1">
             ₹{totalSettled.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
-          <div className="text-[11px] text-emerald-600 mt-0.5">Cleared & Completed Settlements</div>
+          <div className="text-[11px] text-emerald-600 mt-0.5">Cleared & Completed Payments</div>
         </div>
         <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm bg-amber-50/20">
           <div className="text-xs uppercase tracking-wider text-amber-600 font-bold">Pending Reconciliations</div>
@@ -191,17 +191,17 @@ export const AdminPayments = () => {
 
         {/* Method Filter & Search */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <label className="font-semibold uppercase">Method:</label>
-            <select
+          <div className="w-48">
+            <SelectField
               value={methodFilter}
               onChange={(e) => setMethodFilter(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:outline-none"
-            >
-              {methods.map((m) => (
-                <option key={m} value={m}>{m.replace('_', ' ')}</option>
-              ))}
-            </select>
+              size="sm"
+              options={methods.map((m) => ({
+                value: m,
+                label: m === 'ALL' ? 'All Payment Methods' : m.replace('_', ' ')
+              }))}
+              style={{ marginBottom: 0 }}
+            />
           </div>
 
           <div className="search-wrapper">

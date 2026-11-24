@@ -5,9 +5,7 @@ import com.agriconnect.entity.*;
 import com.agriconnect.exception.BadRequestException;
 import com.agriconnect.exception.DuplicateResourceException;
 import com.agriconnect.exception.ResourceNotFoundException;
-import com.agriconnect.repository.HarvestRepository;
-import com.agriconnect.repository.QualityAssessmentRepository;
-import com.agriconnect.repository.UserRepository;
+import com.agriconnect.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -17,15 +15,13 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.util.*;
 
 /**
- * Service managing Quality Assessment and Quality Verification workflows (Phase 5).
+ * Service managing Quality Assessment, Verification, Buyer Feedback, and Reassessment workflows (Phases 5 & 16C).
  * Enforces server-side score calculation, grading rules, admin authorization,
- * farmer harvest ownership boundaries, and database integrity constraints.
+ * farmer harvest ownership boundaries, and immutable audit history.
  */
 @Service
 public class QualityAssessmentService {
@@ -35,25 +31,28 @@ public class QualityAssessmentService {
     private final QualityAssessmentRepository qualityAssessmentRepository;
     private final HarvestRepository harvestRepository;
     private final UserRepository userRepository;
+    private final BuyerQualityFeedbackRepository buyerQualityFeedbackRepository;
+    private final QualityReassessmentRepository qualityReassessmentRepository;
+    private final OrderRepository orderRepository;
 
     public QualityAssessmentService(QualityAssessmentRepository qualityAssessmentRepository,
                                     HarvestRepository harvestRepository,
-                                    UserRepository userRepository) {
+                                    UserRepository userRepository,
+                                    BuyerQualityFeedbackRepository buyerQualityFeedbackRepository,
+                                    QualityReassessmentRepository qualityReassessmentRepository,
+                                    OrderRepository orderRepository) {
         this.qualityAssessmentRepository = qualityAssessmentRepository;
         this.harvestRepository = harvestRepository;
         this.userRepository = userRepository;
+        this.buyerQualityFeedbackRepository = buyerQualityFeedbackRepository;
+        this.qualityReassessmentRepository = qualityReassessmentRepository;
+        this.orderRepository = orderRepository;
     }
 
     // ===================================================================
-    // Centralized Calculation & Grading Rules (Sections 5, 6, 18)
+    // Centralized Calculation & Grading Rules
     // ===================================================================
 
-    /**
-     * Calculates the official quality score from 5 agricultural inspection parameters:
-     * Average = (freshness + appearance + size + color + ripeness) / 5.0
-     * Quality Score = Average * 10.0
-     * Rounded to 2 decimal places with HALF_UP.
-     */
     public static BigDecimal calculateQualityScore(int freshness, int appearance, int size, int color, int ripeness) {
         validateParameterScale("Freshness", freshness);
         validateParameterScale("Appearance", appearance);
@@ -68,12 +67,6 @@ public class QualityAssessmentService {
                 .setScale(2, RoundingMode.HALF_UP);
     }
 
-    /**
-     * Determines quality grade from quality score:
-     * Score 80.00 – 100.00 -> Grade A
-     * Score 60.00 – 79.99  -> Grade B
-     * Score 0.00 – 59.99   -> Grade C
-     */
     public static QualityGrade determineQualityGrade(BigDecimal score) {
         if (score == null) {
             throw new BadRequestException("Quality score cannot be null.");
@@ -110,11 +103,6 @@ public class QualityAssessmentService {
     // Admin Assessment Operations
     // ===================================================================
 
-    /**
-     * Creates an official quality assessment for a harvest lot.
-     * Accessible only by authenticated administrators.
-     * Enforces the 1:1 Harvest to QualityAssessment constraint (409 Conflict if duplicate).
-     */
     @Transactional
     public QualityAssessmentResponse createAssessment(Integer adminUserId, CreateQualityAssessmentRequest request) {
         User admin = validateAdminUser(adminUserId);
@@ -162,10 +150,6 @@ public class QualityAssessmentService {
         return new QualityAssessmentResponse(saved);
     }
 
-    /**
-     * Retrieves all harvests requiring quality assessment or filtered by status.
-     * If status is null or 'PENDING', returns harvests awaiting inspection or verification.
-     */
     @Transactional(readOnly = true)
     public List<AdminHarvestQualitySummaryResponse> getPendingHarvests(String statusFilter) {
         List<Harvest> allHarvests = harvestRepository.findAll();
@@ -177,7 +161,6 @@ public class QualityAssessmentService {
                 })
                 .filter(summary -> {
                     if (statusFilter == null || statusFilter.trim().isEmpty() || "PENDING".equalsIgnoreCase(statusFilter)) {
-                        // Pending queue includes unassessed lots and lots awaiting verification
                         return !summary.isHasAssessment() || "PENDING".equalsIgnoreCase(summary.getAssessmentStatus());
                     } else if ("ALL".equalsIgnoreCase(statusFilter)) {
                         return true;
@@ -190,9 +173,6 @@ public class QualityAssessmentService {
                 .toList();
     }
 
-    /**
-     * Retrieves full harvest details along with any existing quality assessment.
-     */
     @Transactional(readOnly = true)
     public HarvestQualityDetailResponse getHarvestDetailsForAssessment(Integer harvestId) {
         Harvest harvest = harvestRepository.findById(harvestId)
@@ -206,9 +186,6 @@ public class QualityAssessmentService {
         );
     }
 
-    /**
-     * Retrieves a quality assessment by its ID.
-     */
     @Transactional(readOnly = true)
     public QualityAssessmentResponse getAssessmentById(Integer assessmentId) {
         QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
@@ -216,16 +193,17 @@ public class QualityAssessmentService {
         return new QualityAssessmentResponse(qa);
     }
 
-    /**
-     * Updates an existing quality assessment.
-     * Recalculates score and grade server-side, and resets status to PENDING for admin re-verification.
-     */
     @Transactional
     public QualityAssessmentResponse updateAssessment(Integer adminUserId, Integer assessmentId, UpdateQualityAssessmentRequest request) {
         User admin = validateAdminUser(adminUserId);
 
         QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
+
+        if (qa.getVerificationStatus() == VerificationStatus.VERIFIED) {
+            log.warn("Admin {} attempted direct update on already VERIFIED assessment #{}. Use Reassessment instead.", adminUserId, assessmentId);
+            throw new BadRequestException("Assessment #" + assessmentId + " is already VERIFIED. Please request a formal Reassessment to adjust parameters.");
+        }
 
         validateDamagePercentage(request.getDamagePercentage());
 
@@ -246,22 +224,17 @@ public class QualityAssessmentService {
         qa.setDamagePercentage(request.getDamagePercentage());
         qa.setQualityScore(score);
         qa.setQualityGrade(grade);
-        qa.setVerificationStatus(VerificationStatus.PENDING); // Reset to PENDING as per Section 21
+        qa.setInspectorNotes(request.getInspectorNotes());
+        qa.setVerificationStatus(VerificationStatus.PENDING);
         qa.setAdmin(admin);
-        if (request.getInspectorNotes() != null) {
-            qa.setInspectorNotes(request.getInspectorNotes().trim());
-        }
 
         QualityAssessment updated = qualityAssessmentRepository.save(qa);
-        log.info("Admin {} updated quality assessment #{} (Recalculated Score: {}, Grade: {})",
+        log.info("Admin user {} updated quality assessment #{}: New Score={}, Grade={}",
                 adminUserId, assessmentId, score, grade);
 
         return new QualityAssessmentResponse(updated);
     }
 
-    /**
-     * Formally verifies a quality assessment.
-     */
     @Transactional
     public QualityAssessmentResponse verifyAssessment(Integer adminUserId, Integer assessmentId) {
         User admin = validateAdminUser(adminUserId);
@@ -269,19 +242,21 @@ public class QualityAssessmentService {
         QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
 
+        if (qa.getVerificationStatus() == VerificationStatus.VERIFIED) {
+            log.info("Quality assessment #{} is already VERIFIED. Idempotent return.", assessmentId);
+            return new QualityAssessmentResponse(qa);
+        }
+
         qa.setVerificationStatus(VerificationStatus.VERIFIED);
         qa.setAdmin(admin);
-
         QualityAssessment verified = qualityAssessmentRepository.save(qa);
-        log.info("Admin {} VERIFIED quality assessment #{} for harvest lot #{}",
+
+        log.info("Admin user {} verified quality assessment #{} for harvest #{}",
                 adminUserId, assessmentId, qa.getHarvest().getHarvestId());
 
         return new QualityAssessmentResponse(verified);
     }
 
-    /**
-     * Rejects a quality assessment.
-     */
     @Transactional
     public QualityAssessmentResponse rejectAssessment(Integer adminUserId, Integer assessmentId, String notes) {
         User admin = validateAdminUser(adminUserId);
@@ -289,28 +264,336 @@ public class QualityAssessmentService {
         QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
 
-        qa.setVerificationStatus(VerificationStatus.REJECTED);
-        qa.setAdmin(admin);
-        if (notes != null && !notes.trim().isEmpty()) {
-            qa.setInspectorNotes(notes.trim());
+        if (qa.getVerificationStatus() == VerificationStatus.REJECTED) {
+            log.info("Quality assessment #{} is already REJECTED. Idempotent return.", assessmentId);
+            return new QualityAssessmentResponse(qa);
         }
 
+        qa.setVerificationStatus(VerificationStatus.REJECTED);
+        qa.setAdmin(admin);
+        if (notes != null && !notes.isBlank()) {
+            qa.setInspectorNotes(notes);
+        }
         QualityAssessment rejected = qualityAssessmentRepository.save(qa);
-        log.info("Admin {} REJECTED quality assessment #{} for harvest lot #{}",
+
+        log.info("Admin user {} marked quality assessment #{} as REJECTED for harvest #{}",
                 adminUserId, assessmentId, qa.getHarvest().getHarvestId());
 
         return new QualityAssessmentResponse(rejected);
     }
 
-    /**
-     * Retrieves aggregated assessment counts for the admin overview dashboard.
-     */
+    // ===================================================================
+    // Phase 16C: Quality Reassessment & Audit History
+    // ===================================================================
+
+    @Transactional
+    public QualityAssessmentResponse requestReassessment(Integer adminUserId, Integer assessmentId, RequestReassessmentRequest request) {
+        User admin = validateAdminUser(adminUserId);
+
+        QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
+
+        if (qa.getVerificationStatus() == VerificationStatus.REJECTED) {
+            throw new BadRequestException("Cannot request reassessment on an already rejected assessment.");
+        }
+
+        qa.setVerificationStatus(VerificationStatus.REASSESSMENT_REQUIRED);
+        String reasonText = request.getReason().trim();
+        if (request.getNotes() != null && !request.getNotes().isBlank()) {
+            qa.setInspectorNotes("Reassessment Requested: " + reasonText + " - " + request.getNotes().trim());
+        } else {
+            qa.setInspectorNotes("Reassessment Requested: " + reasonText);
+        }
+
+        if (request.getBuyerFeedbackId() != null) {
+            buyerQualityFeedbackRepository.findById(request.getBuyerFeedbackId()).ifPresent(fb -> {
+                fb.setReviewStatus(FeedbackReviewStatus.UNDER_REASSESSMENT);
+                buyerQualityFeedbackRepository.save(fb);
+            });
+        }
+
+        QualityAssessment saved = qualityAssessmentRepository.save(qa);
+        log.info("Admin user {} placed quality assessment #{} in REASSESSMENT_REQUIRED. Reason: {}",
+                adminUserId, assessmentId, reasonText);
+
+        return new QualityAssessmentResponse(saved);
+    }
+
+    @Transactional
+    public QualityReassessmentResponse performReassessment(Integer adminUserId, Integer assessmentId, PerformReassessmentRequest request) {
+        User admin = validateAdminUser(adminUserId);
+
+        QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
+
+        validateDamagePercentage(request.getDamagePercentage());
+
+        if (request.getReason() == null || request.getReason().isBlank()) {
+            throw new BadRequestException("Reassessment reason is required.");
+        }
+        if (request.getInspectionRemarks() == null || request.getInspectionRemarks().isBlank()) {
+            throw new BadRequestException("Inspection remarks are required.");
+        }
+
+        BigDecimal recalculatedScore = calculateQualityScore(
+                request.getFreshness(),
+                request.getAppearance(),
+                request.getSize(),
+                request.getColor(),
+                request.getRipeness()
+        );
+        QualityGrade recalculatedGrade = determineQualityGrade(recalculatedScore);
+
+        BigDecimal previousScore = qa.getQualityScore();
+        QualityGrade previousGrade = qa.getQualityGrade();
+
+        BuyerQualityFeedback feedback = null;
+        if (request.getBuyerFeedbackId() != null) {
+            feedback = buyerQualityFeedbackRepository.findById(request.getBuyerFeedbackId()).orElse(null);
+        }
+
+        QualityReassessment reassessment = new QualityReassessment(
+                qa,
+                qa.getHarvest(),
+                admin,
+                request.getReason().trim(),
+                feedback,
+                request.getFreshness(),
+                request.getAppearance(),
+                request.getSize(),
+                request.getColor(),
+                request.getRipeness(),
+                request.getDamagePercentage(),
+                recalculatedScore,
+                recalculatedGrade,
+                request.getInspectionRemarks().trim(),
+                previousScore,
+                previousGrade,
+                request.getDecision(),
+                admin
+        );
+
+        QualityReassessment savedReassessment = qualityReassessmentRepository.save(reassessment);
+
+        // Update live QualityAssessment entity
+        if (request.getDecision() == ReassessmentDecision.RE_VERIFIED) {
+            qa.setFreshness(request.getFreshness());
+            qa.setAppearance(request.getAppearance());
+            qa.setSize(request.getSize());
+            qa.setColor(request.getColor());
+            qa.setRipeness(request.getRipeness());
+            qa.setDamagePercentage(request.getDamagePercentage());
+            qa.setQualityScore(recalculatedScore);
+            qa.setQualityGrade(recalculatedGrade);
+            qa.setVerificationStatus(VerificationStatus.VERIFIED);
+            qa.setInspectorNotes("Re-Verified: " + request.getInspectionRemarks().trim());
+            if (feedback != null) {
+                feedback.setReviewStatus(FeedbackReviewStatus.RESOLVED);
+                buyerQualityFeedbackRepository.save(feedback);
+            }
+        } else {
+            qa.setVerificationStatus(VerificationStatus.REJECTED);
+            qa.setInspectorNotes("Rejected after Reassessment: " + request.getInspectionRemarks().trim());
+            if (feedback != null) {
+                feedback.setReviewStatus(FeedbackReviewStatus.RESOLVED);
+                buyerQualityFeedbackRepository.save(feedback);
+            }
+        }
+
+        qa.setAdmin(admin);
+        qualityAssessmentRepository.save(qa);
+
+        log.info("Admin user {} completed reassessment #{} on QA #{}. Decision={}, Score={}, Grade={}",
+                adminUserId, savedReassessment.getReassessmentId(), assessmentId,
+                request.getDecision(), recalculatedScore, recalculatedGrade);
+
+        return new QualityReassessmentResponse(savedReassessment);
+    }
+
+    @Transactional(readOnly = true)
+    public List<QualityAuditTimelineItem> getAuditHistory(Integer assessmentId) {
+        QualityAssessment qa = qualityAssessmentRepository.findById(assessmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Quality assessment not found with ID: " + assessmentId));
+
+        List<QualityAuditTimelineItem> timeline = new ArrayList<>();
+
+        // 1. Initial Assessment
+        LocalDateTime initTime = qa.getCreatedAt() != null ? qa.getCreatedAt() : qa.getAssessmentDate().atStartOfDay();
+        timeline.add(new QualityAuditTimelineItem(
+                "INITIAL_ASSESSMENT",
+                initTime,
+                qa.getAdmin() != null ? qa.getAdmin().getFullName() : "APMC Quality Inspector",
+                "Initial Assessment Stamped",
+                qa.getVerificationStatus().name(),
+                qa.getQualityScore(),
+                qa.getQualityGrade().name(),
+                qa.getInspectorNotes(),
+                Map.of(
+                        "freshness", qa.getFreshness(),
+                        "appearance", qa.getAppearance(),
+                        "size", qa.getSize(),
+                        "color", qa.getColor(),
+                        "ripeness", qa.getRipeness(),
+                        "damagePercentage", qa.getDamagePercentage()
+                )
+        ));
+
+        // 2. Buyer Feedbacks on harvest's orders
+        if (qa.getHarvest() != null) {
+            List<BuyerQualityFeedback> feedbacks = buyerQualityFeedbackRepository
+                    .findByHarvest_HarvestIdOrderBySubmittedAtDesc(qa.getHarvest().getHarvestId());
+            for (BuyerQualityFeedback fb : feedbacks) {
+                timeline.add(new QualityAuditTimelineItem(
+                        "BUYER_FEEDBACK",
+                        fb.getSubmittedAt(),
+                        fb.getBuyer() != null ? fb.getBuyer().getFullName() : "Buyer",
+                        "Buyer Quality Feedback (" + fb.getIssueType().name() + ")",
+                        fb.getReviewStatus().name(),
+                        null,
+                        null,
+                        fb.getComments(),
+                        Map.of(
+                                "feedbackId", fb.getFeedbackId(),
+                                "orderId", fb.getOrder() != null ? fb.getOrder().getOrderId() : 0,
+                                "rating", fb.getRating(),
+                                "issueType", fb.getIssueType().name()
+                        )
+                ));
+            }
+        }
+
+        // 3. Reassessments
+        List<QualityReassessment> reassessments = qualityReassessmentRepository
+                .findByQualityAssessment_AssessmentIdOrderByInspectedAtDesc(assessmentId);
+        for (QualityReassessment qr : reassessments) {
+            timeline.add(new QualityAuditTimelineItem(
+                    qr.getDecision() == ReassessmentDecision.RE_VERIFIED ? "RE_VERIFIED" : "REJECTED",
+                    qr.getInspectedAt(),
+                    qr.getInspectedBy() != null ? qr.getInspectedBy().getFullName() : "Admin Inspector",
+                    qr.getDecision() == ReassessmentDecision.RE_VERIFIED ? "Quality Re-Verified by Admin" : "Quality Rejected on Reassessment",
+                    qr.getDecision().name(),
+                    qr.getRecalculatedScore(),
+                    qr.getRecalculatedGrade().name(),
+                    qr.getInspectionRemarks(),
+                    Map.of(
+                            "reassessmentId", qr.getReassessmentId(),
+                            "reason", qr.getReason(),
+                            "previousScore", qr.getPreviousScore(),
+                            "previousGrade", qr.getPreviousGrade().name(),
+                            "freshness", qr.getFreshness(),
+                            "appearance", qr.getAppearance(),
+                            "size", qr.getSize(),
+                            "color", qr.getColor(),
+                            "ripeness", qr.getRipeness(),
+                            "damagePercentage", qr.getDamagePercentage()
+                    )
+            ));
+        }
+
+        timeline.sort((a, b) -> {
+            if (a.getTimestamp() == null || b.getTimestamp() == null) return 0;
+            return b.getTimestamp().compareTo(a.getTimestamp());
+        });
+
+        return timeline;
+    }
+
+    @Transactional(readOnly = true)
+    public List<QualityReassessmentResponse> getAllReassessments() {
+        return qualityReassessmentRepository.findAllByOrderByInspectedAtDesc()
+                .stream()
+                .map(QualityReassessmentResponse::new)
+                .toList();
+    }
+
+    // ===================================================================
+    // Phase 16C: Buyer Quality Feedback Operations
+    // ===================================================================
+
+    @Transactional
+    public BuyerQualityFeedbackResponse submitBuyerFeedback(Integer buyerUserId, Integer orderId, SubmitBuyerFeedbackRequest request) {
+        User buyer = userRepository.findById(buyerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Buyer user not found with ID: " + buyerUserId));
+
+        if (buyer.getRole() != Role.BUYER) {
+            throw new AccessDeniedException("Access denied: Only buyers can submit quality feedback.");
+        }
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
+
+        if (!order.getBuyer().getUserId().equals(buyerUserId)) {
+            log.warn("Security violation: Buyer {} attempted to submit feedback for order {} belonging to buyer {}",
+                    buyerUserId, orderId, order.getBuyer().getUserId());
+            throw new AccessDeniedException("Access denied: You can only submit feedback for your own orders.");
+        }
+
+        if (order.getOrderStatus() != OrderStatus.DELIVERED) {
+            throw new BadRequestException("Quality feedback can only be submitted for delivered orders. Current order status: "
+                    + order.getOrderStatus());
+        }
+
+        if (buyerQualityFeedbackRepository.existsByOrder_OrderId(orderId)) {
+            throw new DuplicateResourceException("Quality feedback has already been submitted for Order #" + orderId);
+        }
+
+        Harvest harvest = order.getHarvest();
+        QualityAssessment qa = qualityAssessmentRepository.findByHarvest_HarvestId(harvest.getHarvestId()).orElse(null);
+
+        BuyerQualityFeedback feedback = new BuyerQualityFeedback(
+                order,
+                buyer,
+                harvest,
+                qa,
+                request.getRating(),
+                request.getIssueType(),
+                request.getComments().trim()
+        );
+
+        BuyerQualityFeedback saved = buyerQualityFeedbackRepository.save(feedback);
+        log.info("Buyer {} submitted quality feedback on Order #{} for harvest #{}. Issue: {}",
+                buyerUserId, orderId, harvest.getHarvestId(), request.getIssueType());
+
+        return new BuyerQualityFeedbackResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<BuyerQualityFeedbackResponse> getFeedbackByOrderId(Integer orderId, Integer userId, boolean isAdmin) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found with ID: " + orderId));
+
+        if (!isAdmin) {
+            boolean isBuyer = order.getBuyer().getUserId().equals(userId);
+            boolean isFarmer = order.getHarvest().getFarmer().getUserId().equals(userId);
+            if (!isBuyer && !isFarmer) {
+                throw new AccessDeniedException("Access denied: You do not have permission to view feedback for order #" + orderId);
+            }
+        }
+
+        return buyerQualityFeedbackRepository.findByOrder_OrderId(orderId)
+                .map(BuyerQualityFeedbackResponse::new);
+    }
+
+    @Transactional(readOnly = true)
+    public List<BuyerQualityFeedbackResponse> getAllBuyerFeedback(String statusFilter) {
+        List<BuyerQualityFeedback> list;
+        if (statusFilter != null && !statusFilter.isBlank() && !statusFilter.equalsIgnoreCase("ALL")) {
+            FeedbackReviewStatus reviewStatus = FeedbackReviewStatus.valueOf(statusFilter.toUpperCase());
+            list = buyerQualityFeedbackRepository.findByReviewStatusOrderBySubmittedAtDesc(reviewStatus);
+        } else {
+            list = buyerQualityFeedbackRepository.findAllByOrderBySubmittedAtDesc();
+        }
+        return list.stream().map(BuyerQualityFeedbackResponse::new).toList();
+    }
+
     @Transactional(readOnly = true)
     public Map<String, Long> getAssessmentMetrics() {
         Map<String, Long> metrics = new HashMap<>();
         long verified = qualityAssessmentRepository.countByVerificationStatus(VerificationStatus.VERIFIED);
         long rejected = qualityAssessmentRepository.countByVerificationStatus(VerificationStatus.REJECTED);
         long pending = qualityAssessmentRepository.countByVerificationStatus(VerificationStatus.PENDING);
+        long reassessmentRequired = qualityAssessmentRepository.countByVerificationStatus(VerificationStatus.REASSESSMENT_REQUIRED);
+        long pendingFeedback = buyerQualityFeedbackRepository.findByReviewStatusOrderBySubmittedAtDesc(FeedbackReviewStatus.PENDING_REVIEW).size();
         long totalHarvests = harvestRepository.count();
         long totalAssessed = qualityAssessmentRepository.count();
         long unassessed = Math.max(0, totalHarvests - totalAssessed);
@@ -320,14 +603,13 @@ public class QualityAssessmentService {
         metrics.put("pendingTotal", pending + unassessed);
         metrics.put("verified", verified);
         metrics.put("rejected", rejected);
+        metrics.put("reassessmentRequired", reassessmentRequired);
+        metrics.put("pendingFeedback", pendingFeedback);
         metrics.put("totalHarvests", totalHarvests);
 
         return metrics;
     }
 
-    /**
-     * Retrieves all quality assessments across the platform (Admin).
-     */
     @Transactional(readOnly = true)
     public List<QualityAssessmentResponse> getAllAssessments() {
         return qualityAssessmentRepository.findAllByOrderByCreatedAtDesc()
@@ -336,14 +618,6 @@ public class QualityAssessmentService {
                 .toList();
     }
 
-    // ===================================================================
-    // Farmer Read-Only Quality API (Sections 12, 13)
-    // ===================================================================
-
-    /**
-     * Retrieves the quality assessment for a harvest belonging strictly to the authenticated farmer.
-     * Enforces harvest ownership boundary: if harvest does not belong to farmer, throws 403 Forbidden.
-     */
     @Transactional(readOnly = true)
     public Optional<QualityAssessmentResponse> getFarmerHarvestQuality(Integer farmerUserId, Integer harvestId) {
         Harvest harvest = harvestRepository.findById(harvestId)
@@ -358,10 +632,6 @@ public class QualityAssessmentService {
         return qualityAssessmentRepository.findByHarvest_HarvestId(harvestId)
                 .map(QualityAssessmentResponse::new);
     }
-
-    // ===================================================================
-    // Internal Helper Validations
-    // ===================================================================
 
     private User validateAdminUser(Integer userId) {
         User user = userRepository.findById(userId)

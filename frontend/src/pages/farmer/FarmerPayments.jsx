@@ -88,7 +88,7 @@ export const FarmerPayments = () => {
     .filter((p) => p.paymentStatus === 'COMPLETED')
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
-  const pendingSettlement = payments
+  const pendingPayments = payments
     .filter((p) => p.paymentStatus === 'PENDING')
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
@@ -131,12 +131,12 @@ export const FarmerPayments = () => {
         />
         <DashboardCard
           title="Pending Payments"
-          value={`₹${pendingSettlement.toLocaleString('en-IN')}`}
+          value={`₹${pendingPayments.toLocaleString('en-IN')}`}
           description="Processing order payments"
           icon={Clock}
           variant="secondary"
-          trend={pendingSettlement > 0 ? `+${pendingSettlement}` : null}
-          trendLabel={pendingSettlement > 0 ? 'Pending' : null}
+          trend={pendingPayments > 0 ? `+${pendingPayments}` : null}
+          trendLabel={pendingPayments > 0 ? 'Pending' : null}
         />
         <DashboardCard
           title="Total Transactions"

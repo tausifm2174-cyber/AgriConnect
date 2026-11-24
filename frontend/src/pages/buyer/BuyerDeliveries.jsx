@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import buyerApi from '../../services/buyerApi';
 import DashboardCard from '../../components/DashboardCard';
 import StatusBadge from '../../components/StatusBadge';
+import { pluralize, formatLocation } from '../../utils/formatters';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
@@ -66,14 +67,19 @@ export const BuyerDeliveries = () => {
     try {
       setConfirming(true);
       setError(null);
-      await buyerApi.confirmDelivery(selectedDelivery.deliveryId, confirmRemarks);
+      await (buyerApi.confirmDelivery || buyerApi.confirmDeliveryReceived)(
+        selectedDelivery.deliveryId,
+        { notes: confirmRemarks?.trim() || 'Confirmed received by buyer' }
+      );
       setActionSuccess(`Delivery #DEL-${selectedDelivery.deliveryId} confirmed received! Associated Order #ORD-${selectedDelivery.orderId} marked as DELIVERED.`);
       setConfirmModalOpen(false);
       setSelectedDelivery(null);
+      setConfirmRemarks('');
       await loadDeliveries();
     } catch (err) {
       console.error('Failed to confirm delivery:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to confirm delivery receipt.');
+      const safeMsg = err.response?.data?.message || 'Unable to update delivery. Please refresh the page and try again.';
+      setError(safeMsg);
     } finally {
       setConfirming(false);
     }
@@ -182,7 +188,7 @@ export const BuyerDeliveries = () => {
         <DashboardCard
           title="Received & Fulfilled"
           value={loading ? '...' : deliveredCount}
-          description="Confirmed produce received"
+          description={pluralize(deliveredCount, 'completed delivery', 'completed deliveries')}
           icon={CheckCircle2}
           variant="success"
         />
@@ -253,7 +259,7 @@ export const BuyerDeliveries = () => {
             </thead>
             <tbody>
               {filteredDeliveries.map((del) => {
-                const canConfirm = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
+                const canConfirm = ['SHIPPED', 'IN_TRANSIT', 'DISPATCHED'].includes(del.deliveryStatus);
                 return (
                   <tr key={del.deliveryId}>
                     <td style={{ whiteSpace: 'nowrap' }}>
@@ -270,9 +276,21 @@ export const BuyerDeliveries = () => {
 
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{del.farmerName}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={del.farmLocation}>
-                        {del.farmLocation || 'Origin Hub'}
-                      </div>
+                      {(() => {
+                        const loc = formatLocation(del.farmLocation);
+                        return (
+                          <div style={{ marginTop: '0.15rem' }} title={loc.full}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.25 }}>
+                              {loc.line1}
+                            </div>
+                            {loc.line2 && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+                                {loc.line2}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     <td style={{ whiteSpace: 'nowrap' }}>
@@ -337,8 +355,36 @@ export const BuyerDeliveries = () => {
         >
           <form onSubmit={handleConfirmReceivedSubmit} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-              Confirming receipt marks both the delivery and order as <strong>DELIVERED</strong>. This verifies that you have received <strong>{Number(selectedDelivery.quantity).toLocaleString()} kg</strong> of {selectedDelivery.cropName}.
+              Are you sure you have received this shipment? Confirming receipt marks both the delivery and order as <strong>DELIVERED</strong>.
             </p>
+
+            <div style={{
+              padding: '0.75rem',
+              backgroundColor: 'var(--color-bg)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              fontSize: '0.8125rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Shipment:</span>
+                <span style={{ fontWeight: 700 }}>#DEL-{selectedDelivery.deliveryId}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Order:</span>
+                <span style={{ fontWeight: 600 }}>#ORD-{selectedDelivery.orderId}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Produce:</span>
+                <span style={{ fontWeight: 600 }}>{selectedDelivery.cropName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Quantity:</span>
+                <span style={{ fontWeight: 600 }}>{Number(selectedDelivery.quantity).toLocaleString()} kg</span>
+              </div>
+            </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">Receipt Remarks & Condition</label>

@@ -253,4 +253,59 @@ export const DetailModal = ({
   );
 };
 
+export const DetailSection = ({ title, children, icon: SectionIcon }) => (
+  <div style={{ marginBottom: '1.25rem' }}>
+    {title && (
+      <div style={{
+        fontSize: '0.75rem',
+        fontWeight: 700,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        color: 'var(--color-text-secondary)',
+        marginBottom: '0.65rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '0.4rem',
+      }}>
+        {SectionIcon && <SectionIcon size={14} />}
+        <span>{title}</span>
+      </div>
+    )}
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: '0.75rem',
+      backgroundColor: 'var(--color-bg)',
+      padding: '0.85rem',
+      borderRadius: 'var(--radius-lg)',
+      border: '1px solid var(--color-border)',
+    }}>
+      {children}
+    </div>
+  </div>
+);
+
+export const DetailRow = ({ label, value, highlight = false, mono = false, bold = false }) => (
+  <div>
+    <div style={{
+      fontSize: '0.6875rem',
+      fontWeight: 700,
+      textTransform: 'uppercase',
+      letterSpacing: '0.04em',
+      color: highlight ? 'var(--color-primary)' : 'var(--color-text-muted)',
+    }}>
+      {label}
+    </div>
+    <div style={{
+      fontSize: '0.875rem',
+      fontWeight: highlight || bold ? 700 : 500,
+      color: highlight ? 'var(--color-primary)' : 'var(--color-text)',
+      fontFamily: mono ? 'ui-monospace, monospace' : 'inherit',
+      marginTop: '0.2rem',
+    }}>
+      {value || 'Not provided'}
+    </div>
+  </div>
+);
+
 export default DetailModal;

@@ -108,7 +108,7 @@ export const AdminUsers = () => {
       await fetchUsers();
     } catch (err) {
       console.error('Failed to update status:', err);
-      setStatusError(err.response?.data?.message || err.message || 'Status update failed.');
+      setStatusError(err.response?.data?.message || 'Unable to update user status. Please refresh and try again.');
     } finally {
       setStatusActionLoading(false);
     }

@@ -5,6 +5,7 @@ import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import SelectField from '../../components/SelectField';
 
 export const FarmerPriceHistory = () => {
   const [historyRecords, setHistoryRecords] = useState([]);
@@ -99,20 +100,21 @@ export const FarmerPriceHistory = () => {
         </div>
 
         {/* Crop Selector */}
-        <div className="flex items-center gap-3">
-          <label className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Crop Filter:</label>
-          <select
+        <div className="w-64">
+          <SelectField
+            label="Crop Filter"
             value={selectedCropId}
             onChange={(e) => handleCropSelect(e.target.value)}
-            className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
-          >
-            <option value="">All Cultivated Crops</option>
-            {crops.map((c) => (
-              <option key={c.cropId} value={c.cropId}>
-                {c.cropName} ({c.category})
-              </option>
-            ))}
-          </select>
+            size="sm"
+            options={[
+              { value: '', label: 'All Cultivated Crops' },
+              ...crops.map((c) => ({
+                value: String(c.cropId),
+                label: `${c.cropName} (${c.category})`
+              }))
+            ]}
+            style={{ marginBottom: 0 }}
+          />
         </div>
       </div>
 

@@ -47,4 +47,16 @@ public class AdminUserController {
         AdminUserResponse user = adminUserService.getUserById(id);
         return ResponseEntity.ok(ApiResponse.success("User details retrieved successfully", user));
     }
+
+    /**
+     * Update user account status (e.g. ACTIVE -> INACTIVE or SUSPENDED).
+     * PATCH /api/admin/users/{id}/status?status=INACTIVE
+     */
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<ApiResponse<AdminUserResponse>> updateUserStatus(
+            @PathVariable("id") Integer id,
+            @RequestParam(name = "status") UserStatus status) {
+        AdminUserResponse response = adminUserService.updateUserStatus(id, status);
+        return ResponseEntity.ok(ApiResponse.success("User status updated successfully", response));
+    }
 }

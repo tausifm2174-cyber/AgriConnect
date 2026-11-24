@@ -125,7 +125,7 @@ export const BuyerRequirements = () => {
         <DashboardCard
           title="Fulfilled Contracts"
           value={loading ? '...' : fulfilledReq}
-          description="Purchased and settled"
+          description="Purchased and fulfilled"
           icon={CheckCircle2}
           variant="success"
         />

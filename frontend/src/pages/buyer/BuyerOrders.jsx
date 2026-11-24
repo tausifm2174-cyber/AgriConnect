@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import buyerApi from '../../services/buyerApi';
 import DashboardCard from '../../components/DashboardCard';
 import StatusBadge from '../../components/StatusBadge';
+import { pluralize } from '../../utils/formatters';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
@@ -37,6 +38,7 @@ export const BuyerOrders = () => {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [orderToCancel, setOrderToCancel] = useState(null);
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelModalError, setCancelModalError] = useState(null);
   const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export const BuyerOrders = () => {
   const handleOpenCancel = (ord) => {
     setOrderToCancel(ord);
     setCancelReason('');
+    setCancelModalError(null);
     setCancelModalOpen(true);
   };
 
@@ -71,14 +74,20 @@ export const BuyerOrders = () => {
     try {
       setCancelling(true);
       setError(null);
-      await buyerApi.cancelOrder(orderToCancel.orderId, cancelReason || 'Buyer requested cancellation');
+      setCancelModalError(null);
+      await buyerApi.cancelOrder(orderToCancel.orderId, {
+        reason: cancelReason?.trim() || 'Buyer requested cancellation'
+      });
       setActionSuccess(`Order #ORD-${orderToCancel.orderId} cancelled. Produce inventory restored to farmer.`);
       setCancelModalOpen(false);
       setOrderToCancel(null);
+      setCancelReason('');
       await loadOrders();
     } catch (err) {
       console.error('Failed to cancel order:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to cancel order.');
+      const safeMsg = err.response?.data?.message || 'Unable to cancel order. Please refresh the page and try again.';
+      setCancelModalError(safeMsg);
+      setError(safeMsg);
     } finally {
       setCancelling(false);
     }
@@ -199,9 +208,9 @@ export const BuyerOrders = () => {
           variant="accent"
         />
         <DashboardCard
-          title="Settled Spend"
+          title="Total Order Value"
           value={loading ? '...' : `₹${Number(totalSpend).toLocaleString('en-IN')}`}
-          description={`${deliveredOrders} delivered orders`}
+          description={pluralize(deliveredOrders, 'delivered order')}
           icon={CreditCard}
           variant="success"
         />
@@ -353,9 +362,54 @@ export const BuyerOrders = () => {
           maxWidth="460px"
         >
           <form onSubmit={handleConfirmCancel} style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {cancelModalError && (
+              <div style={{
+                padding: '0.65rem 0.85rem',
+                backgroundColor: 'var(--color-danger-bg)',
+                color: 'var(--color-danger)',
+                border: '1px solid var(--color-danger-border)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem'
+              }}>
+                {cancelModalError}
+              </div>
+            )}
+
             <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
               Cancelling will atomically release the reserved <strong>{Number(orderToCancel.quantity).toLocaleString()} kg</strong> of {orderToCancel.cropName} back to the farmer's marketplace stock.
             </p>
+
+            <div style={{
+              padding: '0.75rem',
+              backgroundColor: 'var(--color-bg)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--color-border)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.35rem',
+              fontSize: '0.8125rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Order ID:</span>
+                <span style={{ fontWeight: 700 }}>#ORD-{orderToCancel.orderId}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Produce:</span>
+                <span style={{ fontWeight: 600 }}>{orderToCancel.cropName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Quantity:</span>
+                <span style={{ fontWeight: 600 }}>{Number(orderToCancel.quantity).toLocaleString()} kg</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Total Value:</span>
+                <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>₹{Number(orderToCancel.totalAmount).toLocaleString('en-IN')}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ color: 'var(--color-text-secondary)' }}>Origin Farmer:</span>
+                <span>{orderToCancel.farmerName}</span>
+              </div>
+            </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label">

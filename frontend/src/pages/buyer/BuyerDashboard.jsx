@@ -213,7 +213,7 @@ export const BuyerDashboard = () => {
             </div>
             <div>
               <div className="action-card-title">Payment Ledger</div>
-              <div className="action-card-subtitle">Receipts & settlements</div>
+              <div className="action-card-subtitle">Receipts & invoices</div>
             </div>
           </Link>
 

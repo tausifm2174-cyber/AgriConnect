@@ -4,6 +4,7 @@ import DashboardCard from '../../components/DashboardCard';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
 import EmptyState from '../../components/EmptyState';
+import SelectField from '../../components/SelectField';
 import {
   TrendingUp,
   Scale,
@@ -101,23 +102,20 @@ export const BuyerPriceHistory = () => {
         </div>
 
         {/* Crop Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <label style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             Crop Filter:
-          </label>
-          <select
+          </span>
+          <SelectField
             value={selectedCropId}
             onChange={(e) => handleCropSelect(e.target.value)}
-            className="form-control"
-            style={{ width: 'auto', minWidth: '180px', padding: '0.45rem 0.75rem', fontSize: '0.8125rem' }}
-          >
-            <option value="">All Commodities</option>
-            {crops.map((c) => (
-              <option key={c.cropId} value={c.cropId}>
-                {c.cropName} ({c.category})
-              </option>
-            ))}
-          </select>
+            size="sm"
+            style={{ marginBottom: 0, minWidth: '190px' }}
+            options={[
+              { value: '', label: 'All Commodities' },
+              ...crops.map((c) => ({ value: c.cropId, label: `${c.cropName} (${c.category})` }))
+            ]}
+          />
         </div>
       </div>
 

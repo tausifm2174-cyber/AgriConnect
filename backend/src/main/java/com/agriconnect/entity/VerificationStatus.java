@@ -5,9 +5,11 @@ package com.agriconnect.entity;
  * PENDING: Assessment recorded by inspector, awaiting administrative verification or re-check.
  * VERIFIED: Checked and certified by authorized administrator; eligible for market matching.
  * REJECTED: Inspection failed quality standards or submitted lot details rejected.
+ * REASSESSMENT_REQUIRED: Flagged for reinspection due to buyer complaint or audit request; disqualified from matching until re-verified.
  */
 public enum VerificationStatus {
     PENDING,
     VERIFIED,
-    REJECTED
+    REJECTED,
+    REASSESSMENT_REQUIRED
 }

@@ -67,7 +67,13 @@ export const StatusBadge = ({ status, type = 'status', showIcon = true, classNam
 
     // Quality & Verification Statuses
     VERIFIED: { bg: 'var(--color-success-bg)', color: 'var(--color-success)', border: 'var(--color-success-border)', icon: ShieldCheck },
+    RE_VERIFIED: { bg: 'var(--color-success-bg)', color: 'var(--color-success)', border: 'var(--color-success-border)', icon: ShieldCheck },
+    REASSESSMENT_REQUIRED: { bg: '#fffbeb', color: '#b45309', border: '#fcd34d', icon: AlertTriangle },
     NOT_ASSESSED: { bg: 'var(--color-bg-alt)', color: 'var(--color-text-muted)', border: 'var(--color-border)', icon: Clock },
+    PENDING_REVIEW: { bg: '#fffbeb', color: '#b45309', border: '#fcd34d', icon: Clock },
+    UNDER_REASSESSMENT: { bg: '#eff6ff', color: '#1d4ed8', border: '#93c5fd', icon: RotateCcw },
+    RESOLVED: { bg: 'var(--color-success-bg)', color: 'var(--color-success)', border: 'var(--color-success-border)', icon: CheckCircle2 },
+    DISMISSED: { bg: 'var(--color-bg-alt)', color: 'var(--color-text-secondary)', border: 'var(--color-border)', icon: XCircle },
 
     // Requirement Statuses
     OPEN: { bg: 'var(--color-primary-light)', color: 'var(--color-primary)', border: 'var(--color-primary-border)', icon: Sparkles },

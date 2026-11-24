@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import adminApi from '../../services/adminApi';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import SelectField from '../../components/SelectField';
 import {
   TrendingUp,
   TrendingDown,
@@ -215,17 +216,18 @@ export const AdminPriceHistory = () => {
 
           <div className="flex items-center gap-3">
             {/* Source Type Filter */}
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
-              <label className="font-semibold uppercase">Source:</label>
-              <select
+            <div className="w-52">
+              <SelectField
                 value={sourceType}
                 onChange={(e) => setSourceType(e.target.value)}
-                className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:outline-none"
-              >
-                <option value="ALL">All Price Sources</option>
-                <option value="MARKET_MANDI">Official APMC Mandi</option>
-                <option value="TRANSACTION_SALE">Closed Platform Sale</option>
-              </select>
+                size="sm"
+                options={[
+                  { value: 'ALL', label: 'All Price Sources' },
+                  { value: 'MARKET_MANDI', label: 'Official APMC Mandi' },
+                  { value: 'TRANSACTION_SALE', label: 'Closed Platform Sale' },
+                ]}
+                style={{ marginBottom: 0 }}
+              />
             </div>
 
             {/* Search */}

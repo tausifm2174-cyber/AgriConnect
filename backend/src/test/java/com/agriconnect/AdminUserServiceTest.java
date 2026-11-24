@@ -101,4 +101,17 @@ class AdminUserServiceTest {
                 .isInstanceOf(ResourceNotFoundException.class)
                 .hasMessageContaining("User not found with ID: 999");
     }
+
+    @Test
+    @DisplayName("updateUserStatus: Successfully updates user status")
+    void testUpdateUserStatus() {
+        when(userRepository.findById(10)).thenReturn(Optional.of(farmerUser));
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AdminUserResponse response = adminUserService.updateUserStatus(10, UserStatus.INACTIVE);
+
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(UserStatus.INACTIVE);
+        assertThat(farmerUser.getStatus()).isEqualTo(UserStatus.INACTIVE);
+    }
 }

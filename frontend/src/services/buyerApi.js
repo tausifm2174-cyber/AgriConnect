@@ -24,19 +24,35 @@ export const buyerApi = {
   getOrders: (params) => apiClient.get('/api/buyer/orders', { params }),
   getOrderById: (orderId) => apiClient.get(`/api/buyer/orders/${orderId}`),
   createOrder: (data) => apiClient.post('/api/buyer/orders', data),
-  cancelOrder: (orderId, data) => apiClient.patch(`/api/buyer/orders/${orderId}/cancel`, data),
+  cancelOrder: (orderId, data) => {
+    const payload = typeof data === 'string' ? { reason: data } : (data || { reason: 'Buyer requested cancellation' });
+    return apiClient.patch(`/api/buyer/orders/${orderId}/cancel`, payload);
+  },
 
   // Delivery & Logistics Tracking
   getDeliveries: (params) => apiClient.get('/api/buyer/deliveries', { params }),
   getDeliveryById: (id) => apiClient.get(`/api/buyer/deliveries/${id}`),
   createDelivery: (data) => apiClient.post('/api/buyer/deliveries', data),
-  confirmDeliveryReceived: (id, data) => apiClient.patch(`/api/buyer/deliveries/${id}/confirm-received`, data),
+  confirmDelivery: (id, data) => {
+    const payload = typeof data === 'string' ? { notes: data } : (data || {});
+    return apiClient.patch(`/api/buyer/deliveries/${id}/confirm-received`, payload);
+  },
+  confirmDeliveryReceived: (id, data) => {
+    const payload = typeof data === 'string' ? { notes: data } : (data || {});
+    return apiClient.patch(`/api/buyer/deliveries/${id}/confirm-received`, payload);
+  },
 
-  // Financial Settlements & Payments
+  // Quality Feedback & Audit (Phase 16C)
+  submitQualityFeedback: (orderId, data) => apiClient.post(`/api/buyer/orders/${orderId}/feedback`, data),
+  getOrderQualityFeedback: (orderId) => apiClient.get(`/api/buyer/orders/${orderId}/feedback`),
+  getOrderQualityAuditHistory: (orderId) => apiClient.get(`/api/buyer/orders/${orderId}/audit-history`),
+
+  // Payments & Invoices
   getPayments: (params) => apiClient.get('/api/buyer/payments', { params }),
   getPaymentById: (id) => apiClient.get(`/api/buyer/payments/${id}`),
   getPaymentsByOrder: (orderId) => apiClient.get(`/api/buyer/payments/order/${orderId}`),
   getOrderPaymentSummary: (orderId) => apiClient.get(`/api/buyer/payments/order/${orderId}`),
+  createPayment: (data) => apiClient.post('/api/buyer/payments', data),
   recordPayment: (data) => apiClient.post('/api/buyer/payments', data),
 
   // Price Analytics & Trends

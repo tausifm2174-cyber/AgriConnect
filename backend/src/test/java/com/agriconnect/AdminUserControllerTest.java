@@ -94,4 +94,19 @@ class AdminUserControllerTest {
                 .andExpect(jsonPath("$.data.fullName").value("Buyer Corp"))
                 .andExpect(jsonPath("$.data.role").value("BUYER"));
     }
+
+    @Test
+    @DisplayName("PATCH /api/admin/users/{id}/status: Returns 200 on successful status transition")
+    void testUpdateUserStatus() throws Exception {
+        AdminUserResponse user = new AdminUserResponse(10, "Kisan Kumar", "kisan@example.com", "9876543210",
+                Role.FARMER, UserStatus.INACTIVE, LocalDateTime.now(), LocalDateTime.now());
+
+        when(adminUserService.updateUserStatus(org.mockito.ArgumentMatchers.eq(10), org.mockito.ArgumentMatchers.eq(UserStatus.INACTIVE))).thenReturn(user);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/admin/users/10/status?status=INACTIVE")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value(200))
+                .andExpect(jsonPath("$.data.status").value("INACTIVE"));
+    }
 }

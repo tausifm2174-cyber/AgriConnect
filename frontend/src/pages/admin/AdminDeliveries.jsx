@@ -83,7 +83,7 @@ export const AdminDeliveries = () => {
       fetchDeliveries();
     } catch (err) {
       console.error('Failed to update delivery status:', err);
-      setUpdateError(err.response?.data?.message || err.message || 'Failed to update delivery status.');
+      setUpdateError(err.response?.data?.message || 'Unable to update delivery status. Please refresh the page and try again.');
     } finally {
       setUpdating(false);
     }

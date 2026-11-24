@@ -54,6 +54,18 @@ public class AdminUserService {
         return mapToAdminUserResponse(user);
     }
 
+    /**
+     * Update user account status (e.g. ACTIVE -> INACTIVE or SUSPENDED).
+     */
+    @Transactional
+    public AdminUserResponse updateUserStatus(Integer userId, UserStatus status) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userId));
+        user.setStatus(status);
+        User saved = userRepository.save(user);
+        return mapToAdminUserResponse(saved);
+    }
+
     private AdminUserResponse mapToAdminUserResponse(User user) {
         AdminUserResponse response = new AdminUserResponse(
                 user.getUserId(),

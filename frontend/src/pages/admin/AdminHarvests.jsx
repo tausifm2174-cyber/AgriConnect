@@ -4,6 +4,7 @@ import adminApi from '../../services/adminApi';
 import StatusBadge from '../../components/StatusBadge';
 import LoadingSpinner from '../../components/LoadingSpinner';
 import ErrorMessage from '../../components/ErrorMessage';
+import SelectField from '../../components/SelectField';
 import {
   Wheat,
   Search,
@@ -125,19 +126,20 @@ export const AdminHarvests = () => {
 
         {/* Quality Filter & Search */}
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 text-xs text-gray-500">
-            <label className="font-semibold uppercase">Quality:</label>
-            <select
+          <div className="w-48">
+            <SelectField
               value={qualityFilter}
               onChange={(e) => setQualityFilter(e.target.value)}
-              className="px-2.5 py-1.5 border border-gray-300 rounded-lg bg-white text-xs font-medium focus:outline-none"
-            >
-              <option value="ALL">All Quality States</option>
-              <option value="VERIFIED">Verified Lots</option>
-              <option value="PENDING">Pending Verification</option>
-              <option value="NOT_ASSESSED">Not Assessed</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
+              size="sm"
+              options={[
+                { value: 'ALL', label: 'All Quality States' },
+                { value: 'VERIFIED', label: 'Verified Lots' },
+                { value: 'PENDING', label: 'Pending Verification' },
+                { value: 'NOT_ASSESSED', label: 'Not Assessed' },
+                { value: 'REJECTED', label: 'Rejected' },
+              ]}
+              style={{ marginBottom: 0 }}
+            />
           </div>
 
           <div className="search-wrapper">

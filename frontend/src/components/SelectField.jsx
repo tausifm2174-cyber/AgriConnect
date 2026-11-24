@@ -16,12 +16,16 @@ export const SelectField = ({
   className = '',
   style = {},
   selectStyle = {},
+  size = 'md',
   children,
 }) => {
   const selectId = id || name || (label ? `select-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
+  const height = size === 'sm' ? '36px' : size === 'lg' ? '46px' : '42px';
+  const fontSize = size === 'sm' ? '0.8125rem' : size === 'lg' ? '0.9375rem' : '0.875rem';
+  const padding = size === 'sm' ? '0.35rem 2rem 0.35rem 0.75rem' : '0.55rem 2.25rem 0.55rem 0.85rem';
 
   return (
-    <div className={`form-group ${className}`} style={{ marginBottom: '1rem', ...style }}>
+    <div className={`form-group ${className}`} style={{ marginBottom: label ? '1rem' : 0, ...style }}>
       {label && (
         <label
           htmlFor={selectId}
@@ -52,9 +56,9 @@ export const SelectField = ({
           className="form-control"
           style={{
             width: '100%',
-            height: '42px',
-            padding: '0.55rem 2.25rem 0.55rem 0.85rem',
-            fontSize: '0.875rem',
+            height,
+            padding,
+            fontSize,
             fontWeight: 500,
             color: value ? 'var(--color-text)' : 'var(--color-text-muted)',
             backgroundColor: disabled ? 'var(--color-bg-alt)' : 'var(--color-surface)',
@@ -95,7 +99,7 @@ export const SelectField = ({
         <div
           style={{
             position: 'absolute',
-            right: '0.85rem',
+            right: size === 'sm' ? '0.65rem' : '0.85rem',
             top: '50%',
             transform: 'translateY(-50%)',
             pointerEvents: 'none',
@@ -105,7 +109,7 @@ export const SelectField = ({
             justifyContent: 'center',
           }}
         >
-          <ChevronDown size={16} />
+          <ChevronDown size={size === 'sm' ? 14 : 16} />
         </div>
       </div>
 

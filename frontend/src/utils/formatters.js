@@ -54,10 +54,28 @@ export const formatStatus = (status) => {
     .join(' ');
 };
 
+export const pluralize = (count, singular, plural = `${singular}s`) => {
+  const num = Number(count) || 0;
+  return `${num} ${num === 1 ? singular : plural}`;
+};
+
+export const formatLocation = (location) => {
+  if (!location) return { line1: 'Location not specified', line2: null, full: 'Location not specified' };
+  const parts = location.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length <= 1) return { line1: parts[0] || location, line2: null, full: location };
+  return {
+    line1: parts[0],
+    line2: parts.slice(1).join(', '),
+    full: location
+  };
+};
+
 export default {
   formatCurrency,
   formatPricePerKg,
   formatQuantity,
   formatDate,
   formatStatus,
+  pluralize,
+  formatLocation,
 };

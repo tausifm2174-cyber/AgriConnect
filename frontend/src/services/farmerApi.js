@@ -21,14 +21,27 @@ export const farmerApi = {
   getOrders: (params) => apiClient.get('/api/farmer/orders', { params }),
   getOrderById: (orderId) => apiClient.get(`/api/farmer/orders/${orderId}`),
   acceptOrder: (orderId) => apiClient.patch(`/api/farmer/orders/${orderId}/accept`),
-  rejectOrder: (orderId, data) => apiClient.patch(`/api/farmer/orders/${orderId}/reject`, data),
+  rejectOrder: (orderId, data) => {
+    const payload = typeof data === 'string' ? { reason: data } : (data || { reason: 'Rejected by farmer' });
+    return apiClient.patch(`/api/farmer/orders/${orderId}/reject`, payload);
+  },
 
   // Deliveries / Shipments
   getDeliveries: (params) => apiClient.get('/api/farmer/deliveries', { params }),
   getDeliveryById: (id) => apiClient.get(`/api/farmer/deliveries/${id}`),
   createDelivery: (data) => apiClient.post('/api/farmer/deliveries', data),
-  shipDelivery: (id, data) => apiClient.patch(`/api/farmer/deliveries/${id}/ship`, data),
-  markDelivered: (id) => apiClient.patch(`/api/farmer/deliveries/${id}/deliver`),
+  shipDelivery: (id, data) => {
+    const payload = typeof data === 'string' ? { notes: data } : (data || {});
+    return apiClient.patch(`/api/farmer/deliveries/${id}/ship`, payload);
+  },
+  completeDelivery: (id, data) => {
+    const payload = typeof data === 'string' ? { notes: data } : (data || {});
+    return apiClient.patch(`/api/farmer/deliveries/${id}/deliver`, payload);
+  },
+  markDelivered: (id, data) => {
+    const payload = typeof data === 'string' ? { notes: data } : (data || {});
+    return apiClient.patch(`/api/farmer/deliveries/${id}/deliver`, payload);
+  },
 
   // Payment Tracking
   getPayments: (params) => apiClient.get('/api/farmer/payments', { params }),

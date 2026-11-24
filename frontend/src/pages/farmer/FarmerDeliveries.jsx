@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import farmerApi from '../../services/farmerApi';
 import DashboardCard from '../../components/DashboardCard';
@@ -9,6 +9,7 @@ import EmptyState from '../../components/EmptyState';
 import Modal from '../../components/Modal';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import SelectField from '../../components/SelectField';
+import { pluralize, formatLocation } from '../../utils/formatters';
 import {
   Truck,
   Clock,
@@ -59,9 +60,17 @@ export const FarmerDeliveries = () => {
     remarks: ''
   });
 
+  const tableWrapperRef = useRef(null);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (tableWrapperRef.current) {
+      tableWrapperRef.current.scrollLeft = 0;
+    }
+  }, [deliveries, statusFilter]);
 
   const loadData = async () => {
     try {
@@ -176,14 +185,15 @@ export const FarmerDeliveries = () => {
     try {
       setActionLoading(true);
       setError(null);
-      await farmerApi.completeDelivery(deliveryToComplete.deliveryId);
+      await (farmerApi.completeDelivery || farmerApi.markDelivered)(deliveryToComplete.deliveryId);
       setActionSuccess(`Shipment #DEL-${deliveryToComplete.deliveryId} marked as DELIVERED!`);
       setCompleteConfirmOpen(false);
       setDeliveryToComplete(null);
       await loadData();
     } catch (err) {
       console.error('Failed to complete delivery:', err);
-      setError(err.response?.data?.message || err.message || 'Failed to mark delivery as completed.');
+      const safeMsg = err.response?.data?.message || 'Unable to update delivery. Please refresh the page and try again.';
+      setError(safeMsg);
     } finally {
       setActionLoading(false);
     }
@@ -305,7 +315,7 @@ export const FarmerDeliveries = () => {
         <DashboardCard
           title="Delivered Orders"
           value={loading ? '...' : deliveredCount}
-          description="Successfully fulfilled contracts"
+          description={pluralize(deliveredCount, 'completed delivery', 'completed deliveries')}
           icon={CheckCircle2}
           variant="success"
         />
@@ -363,7 +373,7 @@ export const FarmerDeliveries = () => {
           onAction={dispatchEligibleOrders.length > 0 ? handleOpenCreate : undefined}
         />
       ) : (
-        <div className="table-wrapper">
+        <div className="table-wrapper" ref={tableWrapperRef}>
           <table className="table-modern">
             <thead>
               <tr>
@@ -378,8 +388,8 @@ export const FarmerDeliveries = () => {
             </thead>
             <tbody>
               {filteredDeliveries.map((del) => {
-                const isPending = del.deliveryStatus === 'PENDING';
-                const isShipped = ['DISPATCHED', 'IN_TRANSIT'].includes(del.deliveryStatus);
+                const canShip = ['PENDING', 'DISPATCHED'].includes(del.deliveryStatus);
+                const canDeliver = ['SHIPPED', 'IN_TRANSIT'].includes(del.deliveryStatus);
                 return (
                   <tr key={del.deliveryId}>
                     <td style={{ whiteSpace: 'nowrap' }}>
@@ -400,9 +410,21 @@ export const FarmerDeliveries = () => {
 
                     <td>
                       <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{del.buyerName || 'Buyer'}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={del.deliveryAddress}>
-                        {del.deliveryAddress || 'Address not specified'}
-                      </div>
+                      {(() => {
+                        const loc = formatLocation(del.deliveryAddress);
+                        return (
+                          <div style={{ marginTop: '0.15rem' }} title={loc.full}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.25 }}>
+                              {loc.line1}
+                            </div>
+                            {loc.line2 && (
+                              <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', lineHeight: 1.25 }}>
+                                {loc.line2}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     <td style={{ whiteSpace: 'nowrap' }}>
@@ -429,7 +451,7 @@ export const FarmerDeliveries = () => {
 
                     <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-                        {isPending && (
+                        {canShip && (
                           <button
                             type="button"
                             onClick={() => handleOpenShip(del)}
@@ -440,7 +462,7 @@ export const FarmerDeliveries = () => {
                           </button>
                         )}
 
-                        {isShipped && (
+                        {canDeliver && (
                           <button
                             type="button"
                             onClick={() => handleCompleteDelivery(del)}
@@ -734,16 +756,43 @@ export const FarmerDeliveries = () => {
           setDeliveryToComplete(null);
         }}
         onConfirm={handleConfirmCompleteDelivery}
-        title="Confirm Delivery Receipt"
-        message={
-          deliveryToComplete
-            ? `Confirm delivery receipt for Shipment #DEL-${deliveryToComplete.deliveryId}? This will mark the order as fulfilled and trigger payment settlement eligibility.`
-            : ''
-        }
-        confirmText="Mark Delivered"
+        title="Confirm Delivery Completion"
+        message="Are you sure you want to mark this shipment as DELIVERED? This will atomically complete the order."
+        confirmText="Confirm Delivered"
         confirmVariant="primary"
         loading={actionLoading}
-      />
+      >
+        {deliveryToComplete && (
+          <div style={{
+            marginTop: '0.75rem',
+            padding: '0.75rem',
+            backgroundColor: 'var(--color-bg)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.35rem',
+            fontSize: '0.8125rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Shipment:</span>
+              <span style={{ fontWeight: 700 }}>#DEL-{deliveryToComplete.deliveryId}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Order:</span>
+              <span style={{ fontWeight: 600 }}>#ORD-{deliveryToComplete.orderId}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Produce:</span>
+              <span style={{ fontWeight: 600 }}>{deliveryToComplete.cropName}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: 'var(--color-text-secondary)' }}>Quantity:</span>
+              <span style={{ fontWeight: 600 }}>{Number(deliveryToComplete.quantity).toLocaleString()} kg</span>
+            </div>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 };

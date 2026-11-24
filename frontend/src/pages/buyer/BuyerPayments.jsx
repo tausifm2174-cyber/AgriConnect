@@ -129,7 +129,7 @@ export const BuyerPayments = () => {
   };
 
   // KPIs
-  const totalSettledPaid = payments
+  const totalPaidAmount = payments
     .filter((p) => p.paymentStatus === 'COMPLETED')
     .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
@@ -137,7 +137,7 @@ export const BuyerPayments = () => {
     .filter((o) => ['ACCEPTED', 'CONFIRMED', 'SHIPPED', 'DELIVERED'].includes(o.status))
     .reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0);
 
-  const pendingDisbursements = Math.max(0, totalOrdersContracted - totalSettledPaid);
+  const pendingInvoiceBalance = Math.max(0, totalOrdersContracted - totalPaidAmount);
   const totalReceipts = payments.length;
 
   // Filter
@@ -163,7 +163,7 @@ export const BuyerPayments = () => {
         <div>
           <h1 className="page-title">
             <CreditCard size={26} color="var(--color-primary)" />
-            <span>Payment Settlements & Ledger</span>
+            <span>Payments & Invoice History</span>
           </h1>
           <p className="page-subtitle">
             View order payments, payment methods, transaction references, and payment statuses.
@@ -222,9 +222,9 @@ export const BuyerPayments = () => {
       {/* KPI Cards Grid (4 Columns Desktop, 2 Tablet, 1 Mobile) */}
       <div className="grid-cards">
         <DashboardCard
-          title="Total Paid (Settled)"
-          value={loading ? '...' : `₹${Number(totalSettledPaid).toLocaleString('en-IN')}`}
-          description={`${payments.filter((p) => p.paymentStatus === 'COMPLETED').length} settled receipts`}
+          title="Total Paid"
+          value={loading ? '...' : `₹${Number(totalPaidAmount).toLocaleString('en-IN')}`}
+          description={`${payments.filter((p) => p.paymentStatus === 'COMPLETED').length} completed payments`}
           icon={CreditCard}
           variant="success"
         />
@@ -236,18 +236,18 @@ export const BuyerPayments = () => {
           variant="primary"
         />
         <DashboardCard
-          title="Pending Settlements"
-          value={loading ? '...' : `₹${Number(pendingDisbursements).toLocaleString('en-IN')}`}
+          title="Pending Invoices"
+          value={loading ? '...' : `₹${Number(pendingInvoiceBalance).toLocaleString('en-IN')}`}
           description="Remaining contract balance"
           icon={Clock}
           variant="secondary"
-          trend={pendingDisbursements > 0 ? `₹${Number(pendingDisbursements).toLocaleString('en-IN')}` : null}
-          trendLabel={pendingDisbursements > 0 ? 'Pending' : null}
+          trend={pendingInvoiceBalance > 0 ? `₹${Number(pendingInvoiceBalance).toLocaleString('en-IN')}` : null}
+          trendLabel={pendingInvoiceBalance > 0 ? 'Pending' : null}
         />
         <DashboardCard
           title="Payment Receipts"
           value={loading ? '...' : totalReceipts}
-          description="Recorded disbursements"
+          description="Recorded transactions"
           icon={FileText}
           variant="accent"
         />
@@ -304,7 +304,7 @@ export const BuyerPayments = () => {
                 <th>Order & Crop</th>
                 <th>Farmer</th>
                 <th>Method & Reference</th>
-                <th style={{ textAlign: 'right' }}>Settled Amount</th>
+                <th style={{ textAlign: 'right' }}>Paid Amount</th>
                 <th style={{ textAlign: 'center' }}>Status</th>
                 <th style={{ textAlign: 'right' }}>Audit</th>
               </tr>
